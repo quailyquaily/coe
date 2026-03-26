@@ -15,7 +15,7 @@ type Orchestrator struct {
 	Recorder  audio.Recorder
 	ASR       asr.Client
 	Corrector llm.Corrector
-	Output    output.Coordinator
+	Output    *output.Coordinator
 }
 
 type Result struct {
@@ -27,12 +27,16 @@ type Result struct {
 }
 
 func (o Orchestrator) Summary() string {
+	outputSummary := "disabled"
+	if o.Output != nil {
+		outputSummary = o.Output.Summary()
+	}
 	return fmt.Sprintf(
 		"recorder=%s, asr=%s, llm=%s, output={%s}",
 		o.Recorder.Summary(),
 		o.ASR.Name(),
 		o.Corrector.Name(),
-		o.Output.Summary(),
+		outputSummary,
 	)
 }
 
@@ -64,11 +68,13 @@ func (o Orchestrator) ProcessCapture(ctx context.Context, capture audio.Result) 
 		}
 	}
 
-	delivery, err := o.Output.Deliver(ctx, result.Corrected)
-	if err != nil {
-		return Result{}, err
+	if o.Output != nil {
+		delivery, err := o.Output.Deliver(ctx, result.Corrected)
+		if err != nil {
+			return Result{}, err
+		}
+		result.Output = delivery
 	}
-	result.Output = delivery
 
 	return result, nil
 }

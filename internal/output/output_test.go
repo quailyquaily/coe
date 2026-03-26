@@ -2,6 +2,7 @@ package output
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,7 +21,7 @@ func TestDeliverWritesClipboard(t *testing.T) {
 
 	t.Setenv("COE_CLIPBOARD_SINK", clipboardSink)
 
-	coord := Coordinator{
+	coord := &Coordinator{
 		ClipboardPlan:   "command",
 		PastePlan:       "unavailable",
 		ClipboardBinary: clipboardBin,
@@ -60,7 +61,7 @@ func TestDeliverRunsYdotoolPaste(t *testing.T) {
 	t.Setenv("COE_CLIPBOARD_SINK", clipboardSink)
 	t.Setenv("COE_PASTE_SINK", pasteSink)
 
-	coord := Coordinator{
+	coord := &Coordinator{
 		ClipboardPlan:   "command",
 		PastePlan:       "command",
 		ClipboardBinary: clipboardBin,
@@ -85,4 +86,156 @@ func TestDeliverRunsYdotoolPaste(t *testing.T) {
 	if got != want {
 		t.Fatalf("paste command args = %q, want %q", got, want)
 	}
+}
+
+func TestDeliverPrefersPortalClipboard(t *testing.T) {
+	portal := &fakePortalSession{}
+	coord := &Coordinator{
+		ClipboardPlan:      "portal",
+		PastePlan:          "unavailable",
+		UsePortalClipboard: true,
+		PortalFactory: func(_ context.Context, req PortalRequest) (PortalSession, error) {
+			if !req.Clipboard || req.Paste {
+				t.Fatalf("unexpected portal request: %+v", req)
+			}
+			return portal, nil
+		},
+	}
+
+	delivery, err := coord.Deliver(context.Background(), "hello portal")
+	if err != nil {
+		t.Fatalf("Deliver() error = %v", err)
+	}
+	if !delivery.ClipboardWritten || delivery.ClipboardMethod != "portal" {
+		t.Fatalf("unexpected delivery result: %+v", delivery)
+	}
+	if portal.clipboard != "hello portal" {
+		t.Fatalf("portal clipboard = %q, want %q", portal.clipboard, "hello portal")
+	}
+}
+
+func TestDeliverFallsBackToCommandWhenPortalClipboardFails(t *testing.T) {
+	dir := t.TempDir()
+	clipboardSink := filepath.Join(dir, "clipboard.txt")
+	clipboardBin := filepath.Join(dir, "fake-wl-copy.sh")
+
+	if err := os.WriteFile(clipboardBin, []byte("#!/bin/sh\ncat > \"$COE_CLIPBOARD_SINK\"\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	t.Setenv("COE_CLIPBOARD_SINK", clipboardSink)
+
+	coord := &Coordinator{
+		ClipboardPlan:      "portal",
+		PastePlan:          "unavailable",
+		ClipboardBinary:    clipboardBin,
+		UsePortalClipboard: true,
+		PortalFactory: func(_ context.Context, _ PortalRequest) (PortalSession, error) {
+			return &fakePortalSession{clipboardErr: fmt.Errorf("portal unavailable")}, nil
+		},
+	}
+
+	delivery, err := coord.Deliver(context.Background(), "fallback text")
+	if err != nil {
+		t.Fatalf("Deliver() error = %v", err)
+	}
+	if delivery.ClipboardMethod != filepath.Base(clipboardBin) {
+		t.Fatalf("clipboard method = %q, want %q", delivery.ClipboardMethod, filepath.Base(clipboardBin))
+	}
+}
+
+func TestDeliverPrefersPortalPaste(t *testing.T) {
+	dir := t.TempDir()
+	clipboardSink := filepath.Join(dir, "clipboard.txt")
+	clipboardBin := filepath.Join(dir, "fake-wl-copy.sh")
+
+	if err := os.WriteFile(clipboardBin, []byte("#!/bin/sh\ncat > \"$COE_CLIPBOARD_SINK\"\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	t.Setenv("COE_CLIPBOARD_SINK", clipboardSink)
+
+	portal := &fakePortalSession{}
+	coord := &Coordinator{
+		ClipboardPlan:   "command",
+		PastePlan:       "portal",
+		ClipboardBinary: clipboardBin,
+		EnableAutoPaste: true,
+		UsePortalPaste:  true,
+		PortalFactory: func(_ context.Context, req PortalRequest) (PortalSession, error) {
+			if req.Clipboard || !req.Paste {
+				t.Fatalf("unexpected portal request: %+v", req)
+			}
+			return portal, nil
+		},
+	}
+
+	delivery, err := coord.Deliver(context.Background(), "hello")
+	if err != nil {
+		t.Fatalf("Deliver() error = %v", err)
+	}
+	if !delivery.PasteExecuted || delivery.PasteMethod != "portal" {
+		t.Fatalf("unexpected delivery result: %+v", delivery)
+	}
+	if portal.pasteCalls != 1 {
+		t.Fatalf("portal paste calls = %d, want 1", portal.pasteCalls)
+	}
+}
+
+func TestDeliverKeepsClipboardSuccessWhenPortalPasteFails(t *testing.T) {
+	dir := t.TempDir()
+	clipboardSink := filepath.Join(dir, "clipboard.txt")
+	clipboardBin := filepath.Join(dir, "fake-wl-copy.sh")
+
+	if err := os.WriteFile(clipboardBin, []byte("#!/bin/sh\ncat > \"$COE_CLIPBOARD_SINK\"\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	t.Setenv("COE_CLIPBOARD_SINK", clipboardSink)
+
+	coord := &Coordinator{
+		ClipboardPlan:   "command",
+		PastePlan:       "portal",
+		ClipboardBinary: clipboardBin,
+		EnableAutoPaste: true,
+		UsePortalPaste:  true,
+		PortalFactory: func(_ context.Context, _ PortalRequest) (PortalSession, error) {
+			return &fakePortalSession{pasteErr: fmt.Errorf("permission denied")}, nil
+		},
+	}
+
+	delivery, err := coord.Deliver(context.Background(), "hello")
+	if err != nil {
+		t.Fatalf("Deliver() error = %v", err)
+	}
+	if !delivery.ClipboardWritten {
+		t.Fatal("expected clipboard success to be preserved")
+	}
+	if delivery.PasteExecuted {
+		t.Fatal("expected paste to remain unexecuted")
+	}
+	if delivery.PasteWarning == "" {
+		t.Fatal("expected paste warning")
+	}
+}
+
+type fakePortalSession struct {
+	clipboard    string
+	clipboardErr error
+	pasteCalls   int
+	pasteErr     error
+}
+
+func (f *fakePortalSession) SetClipboard(_ context.Context, text string) error {
+	if f.clipboardErr != nil {
+		return f.clipboardErr
+	}
+	f.clipboard = text
+	return nil
+}
+
+func (f *fakePortalSession) SendPaste(context.Context) error {
+	f.pasteCalls++
+	return f.pasteErr
+}
+
+func (f *fakePortalSession) Close() error {
+	return nil
 }

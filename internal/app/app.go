@@ -83,12 +83,14 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 			Recorder:  recorder,
 			ASR:       asrClient,
 			Corrector: corrector,
-			Output: output.Coordinator{
-				ClipboardPlan:   describeFeature(string(caps.Clipboard.Mode), caps.Clipboard.Detail),
-				PastePlan:       describeFeature(string(caps.Paste.Mode), caps.Paste.Detail),
-				ClipboardBinary: clipboardBinary,
-				PasteBinary:     pasteBinary,
-				EnableAutoPaste: cfg.Output.EnableAutoPaste,
+			Output: &output.Coordinator{
+				ClipboardPlan:      describeFeature(string(caps.Clipboard.Mode), caps.Clipboard.Detail),
+				PastePlan:          describeFeature(string(caps.Paste.Mode), caps.Paste.Detail),
+				ClipboardBinary:    clipboardBinary,
+				PasteBinary:        pasteBinary,
+				EnableAutoPaste:    cfg.Output.EnableAutoPaste,
+				UsePortalClipboard: caps.Clipboard.Mode == capabilities.ModePortal,
+				UsePortalPaste:     caps.Paste.Mode == capabilities.ModePortal,
 			},
 		},
 	}
@@ -97,6 +99,12 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 }
 
 func (a *App) Serve(ctx context.Context, w io.Writer) error {
+	defer func() {
+		if a.Pipeline.Output != nil {
+			_ = a.Pipeline.Output.Close()
+		}
+	}()
+
 	fmt.Fprintln(w, "coe skeleton starting")
 	fmt.Fprintln(w, a.Caps.Report())
 	fmt.Fprintf(w, "hotkey wiring: %s\n", a.Hotkey.Plan())
@@ -208,6 +216,9 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 					processed.Output.PasteExecuted,
 					blankIfEmpty(processed.Output.PasteMethod, "none"),
 				)
+				if processed.Output.PasteWarning != "" {
+					fmt.Fprintf(w, "paste warning: %s\n", processed.Output.PasteWarning)
+				}
 			default:
 				fmt.Fprintf(w, "unknown trigger event: %s\n", event.Type)
 			}

@@ -15,9 +15,9 @@ The most important constraint is:
 | --- | --- | --- | --- |
 | Global trigger | `GlobalShortcuts` portal | GNOME custom shortcut that runs `coe trigger toggle` | Shipped path is toggle-style, not true hold-to-talk |
 | Audio capture | `pw-record` | `pw-record` | This is already the production implementation |
-| Clipboard write | `Clipboard` portal | `wl-copy` | `doctor` can detect portal support, but delivery still uses `wl-copy` |
-| Auto-paste | `RemoteDesktop` portal | none by default | Portal paste is not implemented yet |
-| Auto-paste fallback | `RemoteDesktop` portal | `ydotool` wiring only | Not yet validated on a real target machine |
+| Clipboard write | `Clipboard` portal | portal first, `wl-copy` fallback | Portal path is implemented, but still needs end-to-end GNOME validation |
+| Auto-paste | `RemoteDesktop` portal | portal first | Implemented, but still needs end-to-end GNOME validation |
+| Auto-paste fallback | `RemoteDesktop` portal | `ydotool` | Command fallback remains available |
 | wlroots-specific paste | `RemoteDesktop` portal | `wtype` planned only | Outside the GNOME-first scope |
 
 ## GNOME trigger fallback
@@ -85,7 +85,7 @@ Why it is accepted:
 Tradeoff:
 
 - still depends on compositor behavior and a background clipboard owner process
-- it is the only shipped clipboard delivery path today
+- it is the fallback clipboard delivery path when portal output is unavailable or fails
 
 ### `ydotool`
 
@@ -102,7 +102,7 @@ Tradeoffs:
 - needs `ydotoold`
 - needs root or suitable `uinput`/group permissions
 - is less user-friendly than the portal path
-- wired in code, but not yet validated end-to-end on a GNOME target machine
+- command fallback remains useful when portal paste is unavailable or denied
 
 ### `wtype`
 
@@ -127,10 +127,10 @@ Examples:
 
 - Missing `GlobalShortcuts` on GNOME:
   use `coe trigger toggle`
-- Missing shipped portal clipboard implementation:
+- Missing or failing portal clipboard delivery:
   use `wl-copy`
-- Missing shipped portal paste implementation:
-  do not auto-paste unless `ydotool` is installed and configured
+- Missing or denied portal paste:
+  prefer `ydotool` if installed and configured
 
 ## Near-term implementation shape
 
@@ -154,13 +154,11 @@ Implemented now:
 - `pw-record`-backed capture lifecycle
 - OpenAI ASR from recorded audio
 - OpenAI LLM correction from transcript text
-- `wl-copy` clipboard delivery from the pipeline output stage
+- portal-backed clipboard and paste session wiring
+- `wl-copy` clipboard fallback from the pipeline output stage
+- `ydotool` command fallback for auto-paste
 
 Wired but not yet validated on a real target machine:
 
-- `ydotool`-based auto-paste fallback
-
-Detected by `doctor` but not yet implemented in the pipeline output path:
-
-- portal clipboard write
-- portal auto-paste through `RemoteDesktop`
+- portal clipboard delivery on a real GNOME session
+- portal auto-paste through `RemoteDesktop` on a real GNOME session

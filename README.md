@@ -19,9 +19,9 @@ Validated so far:
 Important limits in the current codebase:
 
 - `GlobalShortcuts` portal is not implemented yet
-- portal-backed clipboard output is not implemented yet
-- portal-backed auto-paste is not implemented yet
-- auto-paste fallback is only partially wired through `ydotool`
+- portal-backed clipboard output is implemented but not yet validated end-to-end on a real GNOME target
+- portal-backed auto-paste is implemented but not yet validated end-to-end on a real GNOME target
+- `ydotool` remains the command-line paste fallback
 
 ## Requirements
 
@@ -97,7 +97,8 @@ Audio defaults:
 Output defaults:
 
 - clipboard: `wl-copy`
-- auto-paste: enabled in config, but no working GNOME portal implementation yet
+- clipboard and paste will prefer portal paths when the runtime exposes them
+- `wl-copy` and `ydotool` remain command-line fallbacks
 
 ## Commands
 

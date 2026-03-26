@@ -33,13 +33,13 @@ What is implemented now:
 - OpenAI ASR client
 - OpenAI LLM corrector
 - `wl-copy` clipboard delivery
+- portal-backed output session wiring for clipboard and auto-paste
 
 What is not implemented yet:
 
 - portal-backed `GlobalShortcuts`
-- portal-backed clipboard write
-- portal-backed auto-paste
 - validated `ydotool` fallback
+- end-to-end validation of portal clipboard and portal auto-paste on a real GNOME target
 
 This distinction matters because `doctor` can correctly detect portal availability even when the runtime implementation still uses command-line helpers.
 
@@ -75,13 +75,11 @@ The target architecture is still **portal-first**:
 - Clipboard write: `org.freedesktop.portal.Clipboard`
 - Simulated paste: `org.freedesktop.portal.RemoteDesktop`
 
-The current repository implementation is command-first for output and audio:
+The current repository implementation is:
 
 - Audio capture: `pw-record`
-- Clipboard write: `wl-copy`
-- Paste fallback wiring: `ydotool`
-
-Portal output remains planned work, not shipped work.
+- Clipboard write: portal first, `wl-copy` fallback
+- Paste injection: portal first, `ydotool` fallback
 
 ## 5. Confirmed constraints
 
@@ -268,14 +266,14 @@ Rules:
 
 Current implementation:
 
-- clipboard delivery through `wl-copy`
-- optional `ydotool` invocation for auto-paste if configured
+- persistent portal-backed output session when the runtime exposes `Clipboard` and/or `RemoteDesktop`
+- `wl-copy` fallback for clipboard delivery
+- optional `ydotool` invocation for auto-paste fallback if configured
 
 Planned implementation:
 
-- portal clipboard write
-- portal `RemoteDesktop` auto-paste
-- runtime selection between portal and command delivery instead of probe-only reporting
+- portal `GlobalShortcuts`
+- runtime validation and polishing for the portal output path
 
 ### 8.7 Session / auth store
 

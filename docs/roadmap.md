@@ -104,6 +104,11 @@ Exit criteria:
 - Clipboard delivery uses the portal path when available
 - Auto-paste can work through `RemoteDesktop` when authorized
 
+Status:
+
+- complete for portal clipboard and portal paste wiring
+- pending real-session validation and `GlobalShortcuts`
+
 ### M5: productization
 
 Deliverables:
