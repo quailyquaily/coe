@@ -2,44 +2,53 @@
 
 COE is a dictation tool for GNOME on Wayland, written in Go.
 
-It is a Linux-focused recreation of [`missuo/koe`](https://github.com/missuo/koe). The goal is the same: capture speech, transcribe it, clean up the text, and put the result back into the active app.
+It is a Linux-focused recreation of [`missuo/koe`](https://github.com/missuo/koe). The goal is the same: press a hotkey, speak, clean up the transcript, and put the result back into the active app.
 
-## Current status
+## The Name
+
+`coe` is close to `koe` on purpose. The project is a nod to Koe, but aimed at Linux and Wayland. The old kanji character `聲` means voice. That is the whole point of the tool.
+
+## Why COE?
+
+Most Linux voice input tools fail in one of three ways. They depend on X11-era assumptions. They hide basic configuration behind a GUI. Or they do not fit the Wayland security model at all.
+
+COE takes a narrower path:
+
+- It is GNOME-first and Wayland-first.
+- It runs in the background and keeps the UI surface small.
+- It stores configuration in plain YAML.
+- It uses the platform path where possible: portal clipboard, portal paste, desktop notifications.
+- It keeps the degraded path explicit when Wayland blocks the ideal one.
+
+The scope is deliberately narrow. COE is trying to do one job well.
+
+## How It Works
 
 The verified path today is:
 
 `GNOME custom shortcut -> coe trigger toggle -> pw-record -> OpenAI ASR -> OpenAI LLM correction -> portal clipboard -> portal auto-paste`
 
-What works:
+The runtime flow is:
 
-- GNOME Wayland fallback trigger via `coe trigger toggle`
-- microphone capture through `pw-record`
-- batch transcription through OpenAI Audio Transcriptions
-- transcript cleanup through OpenAI Responses
-- final text written through portal clipboard
-- final text auto-pasted through portal keyboard injection
-- near-silent recordings are short-circuited locally before ASR
-- severely clipped or corrupted recordings are short-circuited locally before ASR
-- command-line fallbacks through `wl-copy` and `ydotool`
+1. Trigger dictation with `coe trigger toggle`, usually from a GNOME custom shortcut.
+2. Record microphone input with `pw-record`.
+3. Reject near-silent or obviously corrupt captures before they leave the machine.
+4. Send the audio to OpenAI Audio Transcriptions.
+5. Send the transcript to an OpenAI-compatible text model for cleanup.
+6. Write the corrected text through the clipboard path.
+7. Paste it back into the focused app when the runtime allows it.
 
-What does not exist yet:
+Current provider support is intentionally narrow:
 
-- `GlobalShortcuts` portal is not implemented yet
-- `ydotool` remains the command-line paste fallback
+- ASR: OpenAI Audio Transcriptions
+- LLM correction: OpenAI-compatible Responses API
+- Output: portal clipboard and portal paste first, `wl-copy` and `ydotool` as fallbacks
 
-Portal access persistence:
+## Installation
 
-- If `persist_portal_access` is `true`, COE stores the portal restore token locally.
-- After the first successful authorization, later runs should reuse that token instead of prompting every time.
-- If GNOME or the portal backend rejects the stored token, COE falls back to a fresh authorization flow.
+### Requirements
 
-System notifications:
-
-- By default, COE sends GNOME desktop notifications for completed dictation and failure cases.
-- Near-silent or corrupt captures are reported locally and skipped before network transcription.
-- Recording-start notifications stay off by default.
-
-## Requirements
+Runtime requirements:
 
 - Wayland session
 - GNOME desktop
@@ -49,49 +58,53 @@ System notifications:
 
 Optional:
 
-- `ydotool` if you want to experiment with auto-paste fallback later
+- `ydotool` if you want to try the command-line paste fallback
 
-## Quick start
-
-Create a config file:
+On Ubuntu, you can install the command-line dependencies with:
 
 ```bash
-go run ./cmd/coe config init
+sudo apt update
+sudo apt install -y pipewire-bin wl-clipboard
 ```
 
-This writes the default config to `~/.config/coe/config.yaml`, unless `COE_CONFIG` overrides the path.
-
-Export your OpenAI API key:
+Optional paste fallback:
 
 ```bash
-export OPENAI_API_KEY=...
+sudo apt install -y ydotool
 ```
 
-Check runtime capabilities:
+### Release
+
+GitHub Actions builds Linux release artifacts with GoReleaser.
+
+- Pull requests and pushes to the default branch run a snapshot build and upload Linux artifacts to the workflow run.
+- Tags that match `v*` run `goreleaser release` and publish Linux binaries, tarballs, and checksums to the GitHub release.
+
+The release config lives in [`.goreleaser.yaml`](./.goreleaser.yaml). The workflow lives in [`.github/workflows/release.yml`](./.github/workflows/release.yml).
+
+### Build from Source
+
+#### Prerequisites
+
+- Go `1.24+`
+- a Linux machine
+- the runtime requirements listed above if you want to run the built binary
+
+#### Build
 
 ```bash
-go run ./cmd/coe doctor
+git clone https://github.com/quailyquaily/coe.git
+cd coe
+go build -o coe ./cmd/coe
 ```
 
-Start the daemon:
+#### Run
 
 ```bash
-go run ./cmd/coe serve
+./coe serve
 ```
 
-Trigger dictation by hand:
-
-```bash
-go run ./cmd/coe trigger toggle
-```
-
-If GNOME Wayland does not expose `GlobalShortcuts`, add a GNOME custom shortcut that runs:
-
-```bash
-coe trigger toggle
-```
-
-## Install As A User Service
+### Install As A User Service
 
 To install the current alpha as a persistent user service:
 
@@ -111,47 +124,93 @@ Then put your OpenAI key into `~/.config/coe/env` and restart the service:
 systemctl --user restart coe.service
 ```
 
-## Release
+## Configuration
 
-GitHub Actions now builds Linux release artifacts with GoReleaser.
+COE keeps its config in plain files.
 
-- Pull requests and pushes to the default branch run a snapshot build and upload Linux artifacts to the workflow run.
-- Tags that match `v*` run `goreleaser release` and publish Linux binaries, tarballs, and checksums to the GitHub release.
+Config file:
 
-The release config lives in [`.goreleaser.yaml`](./.goreleaser.yaml). The workflow lives in [`.github/workflows/release.yml`](./.github/workflows/release.yml).
+- `~/.config/coe/config.yaml`
 
-## Defaults
+Runtime state:
 
-ASR:
+- `XDG_STATE_HOME/coe/state.json`
+- fallback: `~/.config/coe/state.json`
+
+The state file stores the portal restore token used to avoid repeated authorization prompts when the desktop backend accepts persistence.
+
+Create the default config with:
+
+```bash
+go run ./cmd/coe config init
+```
+
+That writes `~/.config/coe/config.yaml`, unless `COE_CONFIG` overrides the path.
+
+The current defaults are:
+
+### ASR
 
 - endpoint: `https://api.openai.com/v1/audio/transcriptions`
 - model: `gpt-4o-mini-transcribe`
 - api key env: `OPENAI_API_KEY`
 
-LLM correction:
+### LLM correction
 
 - endpoint: `https://api.openai.com/v1/responses`
 - model: `gpt-4o-mini`
 - api key env: `OPENAI_API_KEY`
 
-Audio:
+### Audio
 
 - recorder: `pw-record`
 - sample rate: `16000`
 - channels: `1`
 - format: `s16`
 
-Output:
+### Output
 
 - clipboard: `wl-copy`
-- clipboard and paste will prefer portal paths when the runtime exposes them
+- clipboard and paste prefer portal paths when the runtime exposes them
 - `wl-copy` and `ydotool` remain command-line fallbacks
 
-Notifications:
+### Notifications
 
 - `enable_system: true`
 - `show_text_preview: true`
 - `notify_on_recording_start: false`
+
+## Current Behavior
+
+What works:
+
+- GNOME Wayland fallback trigger via `coe trigger toggle`
+- microphone capture through `pw-record`
+- batch transcription through OpenAI Audio Transcriptions
+- transcript cleanup through OpenAI Responses
+- final text written through portal clipboard
+- final text auto-pasted through portal keyboard injection
+- GNOME desktop notifications for completion and failure
+- near-silent recordings are short-circuited locally before ASR
+- severely clipped or corrupted recordings are short-circuited locally before ASR
+
+What does not exist yet:
+
+- `GlobalShortcuts` portal support
+- a KDE or Hyprland validation pass in this repo
+- a stronger answer for the upstream microphone/PipeWire saturation issue
+
+Portal access persistence:
+
+- If `persist_portal_access` is `true`, COE stores the portal restore token locally.
+- After the first successful authorization, later runs should reuse that token instead of prompting every time.
+- If GNOME or the portal backend rejects the stored token, COE falls back to a fresh authorization flow.
+
+System notifications:
+
+- By default, COE sends GNOME desktop notifications for completed dictation and failure cases.
+- Near-silent or corrupt captures are reported locally and skipped before network transcription.
+- Recording-start notifications stay off by default.
 
 ## Commands
 
