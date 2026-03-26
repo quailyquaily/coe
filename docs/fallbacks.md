@@ -158,7 +158,7 @@ Implemented now:
 - `wl-copy` clipboard fallback from the pipeline output stage
 - `ydotool` command fallback for auto-paste
 
-Wired but not yet validated on a real target machine:
+Validated on a real GNOME target machine:
 
-- portal clipboard delivery on a real GNOME session
-- portal auto-paste through `RemoteDesktop` on a real GNOME session
+- portal clipboard delivery on a focused text editor
+- portal auto-paste through `RemoteDesktop` into a focused text editor

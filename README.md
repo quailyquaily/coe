@@ -14,13 +14,13 @@ Validated so far:
 - microphone capture through `pw-record`
 - batch transcription through OpenAI Audio Transcriptions
 - transcript cleanup through OpenAI Responses
-- final text written to the clipboard through `wl-copy`
+- final text written through portal clipboard
+- final text auto-pasted through portal keyboard injection
+- command-line fallbacks through `wl-copy` and `ydotool`
 
 Important limits in the current codebase:
 
 - `GlobalShortcuts` portal is not implemented yet
-- portal-backed clipboard output is implemented but not yet validated end-to-end on a real GNOME target
-- portal-backed auto-paste is implemented but not yet validated end-to-end on a real GNOME target
 - `ydotool` remains the command-line paste fallback
 
 Portal access persistence:
@@ -79,6 +79,26 @@ On GNOME Wayland without `GlobalShortcuts`, add a GNOME custom shortcut that run
 coe trigger toggle
 ```
 
+## Install As User Service
+
+To install the current alpha as a persistent user service:
+
+```bash
+./scripts/install-user.sh
+```
+
+That installs:
+
+- `~/.local/bin/coe`
+- `~/.config/systemd/user/coe.service`
+- `~/.config/coe/env`
+
+Then put your OpenAI key into `~/.config/coe/env` and restart:
+
+```bash
+systemctl --user restart coe.service
+```
+
 ## Defaults
 
 ASR defaults:
@@ -119,6 +139,7 @@ Output defaults:
 ## Docs
 
 - [`docs/README.md`](./docs/README.md)
+- [`docs/install.md`](./docs/install.md)
 - [`docs/architecture.md`](./docs/architecture.md)
 - [`docs/fallbacks.md`](./docs/fallbacks.md)
 - [`docs/gnome-globalshortcuts-matrix.md`](./docs/gnome-globalshortcuts-matrix.md)

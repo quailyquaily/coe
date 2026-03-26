@@ -113,6 +113,8 @@ Status:
 
 Deliverables:
 
+- User-scoped install flow
+- `systemd --user` service
 - Better status UX
 - Packaging / installation story
 - Logs and diagnostics improvements
@@ -120,7 +122,8 @@ Deliverables:
 Status:
 
 - restore token persistence implemented for portal output sessions
-- remaining work is packaging, installation, and UX polish
+- user service packaging and install docs implemented
+- remaining work is UX polish and broader install validation
 
 ### M6: compositor expansion
 
@@ -181,7 +184,7 @@ Deliverables:
 
 - Define output result model
 - Coordinate clipboard and auto-paste behavior
-- Today uses command-based delivery; portal delivery is still pending
+- Prefer portal delivery when available and fall back to command helpers when needed
 
 ### `internal/pipeline`
 
