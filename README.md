@@ -49,6 +49,8 @@ Initialize config:
 go run ./cmd/coe config init
 ```
 
+This writes the default config to `~/.config/coe/config.yaml` unless `COE_CONFIG` overrides the path.
+
 Export your OpenAI API key:
 
 ```bash

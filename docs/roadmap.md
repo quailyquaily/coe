@@ -236,4 +236,4 @@ Deliverables:
 - Should the first LLM corrector be optional or always enabled?
 - Should `coe trigger toggle` remain the default degraded GNOME fallback, or should we also add a dedicated one-shot dictation command?
 - Once `GlobalShortcuts` is available on some GNOME targets, how should runtime preference and user override work between portal hold-to-talk and degraded toggle mode?
-- Should config stay JSON for the alpha, or move to TOML once the schema stabilizes?
+- Should the YAML schema stay hand-edited, or should we add comments/example generation for common desktop setups?

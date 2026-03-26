@@ -8,7 +8,7 @@ import (
 func TestWriteDefaultAndLoad(t *testing.T) {
 	t.Parallel()
 
-	path := filepath.Join(t.TempDir(), "config.json")
+	path := filepath.Join(t.TempDir(), "config.yaml")
 
 	written, err := WriteDefault(path, false)
 	if err != nil {

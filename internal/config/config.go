@@ -1,56 +1,57 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 const envConfigPath = "COE_CONFIG"
 
 type Config struct {
-	Runtime RuntimeConfig `json:"runtime"`
-	Hotkey  HotkeyConfig  `json:"hotkey"`
-	Audio   AudioConfig   `json:"audio"`
-	ASR     Provider      `json:"asr"`
-	LLM     Provider      `json:"llm"`
-	Output  OutputConfig  `json:"output"`
+	Runtime RuntimeConfig `yaml:"runtime"`
+	Hotkey  HotkeyConfig  `yaml:"hotkey"`
+	Audio   AudioConfig   `yaml:"audio"`
+	ASR     Provider      `yaml:"asr"`
+	LLM     Provider      `yaml:"llm"`
+	Output  OutputConfig  `yaml:"output"`
 }
 
 type RuntimeConfig struct {
-	TargetDesktop        string `json:"target_desktop"`
-	AllowExternalTrigger bool   `json:"allow_external_trigger"`
+	TargetDesktop        string `yaml:"target_desktop"`
+	AllowExternalTrigger bool   `yaml:"allow_external_trigger"`
 }
 
 type HotkeyConfig struct {
-	Name                 string `json:"name"`
-	Description          string `json:"description"`
-	PreferredAccelerator string `json:"preferred_accelerator"`
+	Name                 string `yaml:"name"`
+	Description          string `yaml:"description"`
+	PreferredAccelerator string `yaml:"preferred_accelerator"`
 }
 
 type AudioConfig struct {
-	RecorderBinary string `json:"recorder_binary"`
-	SampleRate     int    `json:"sample_rate"`
-	Channels       int    `json:"channels"`
-	Format         string `json:"format"`
+	RecorderBinary string `yaml:"recorder_binary"`
+	SampleRate     int    `yaml:"sample_rate"`
+	Channels       int    `yaml:"channels"`
+	Format         string `yaml:"format"`
 }
 
 type Provider struct {
-	Kind      string `json:"kind"`
-	Endpoint  string `json:"endpoint"`
-	Model     string `json:"model"`
-	APIKeyEnv string `json:"api_key_env"`
-	Language  string `json:"language"`
-	Prompt    string `json:"prompt"`
+	Kind      string `yaml:"kind"`
+	Endpoint  string `yaml:"endpoint"`
+	Model     string `yaml:"model"`
+	APIKeyEnv string `yaml:"api_key_env"`
+	Language  string `yaml:"language"`
+	Prompt    string `yaml:"prompt"`
 }
 
 type OutputConfig struct {
-	PreferredClipboardMode string `json:"preferred_clipboard_mode"`
-	EnableAutoPaste        bool   `json:"enable_auto_paste"`
-	PersistPortalAccess    bool   `json:"persist_portal_access"`
-	ClipboardBinary        string `json:"clipboard_binary"`
-	PasteBinary            string `json:"paste_binary"`
+	PreferredClipboardMode string `yaml:"preferred_clipboard_mode"`
+	EnableAutoPaste        bool   `yaml:"enable_auto_paste"`
+	PersistPortalAccess    bool   `yaml:"persist_portal_access"`
+	ClipboardBinary        string `yaml:"clipboard_binary"`
+	PasteBinary            string `yaml:"paste_binary"`
 }
 
 func Default() Config {
@@ -105,7 +106,7 @@ func ResolvePath() (string, error) {
 		return "", err
 	}
 
-	return filepath.Join(base, "coe", "config.json"), nil
+	return filepath.Join(base, "coe", "config.yaml"), nil
 }
 
 func LoadOrDefault(path string) (Config, error) {
@@ -124,7 +125,7 @@ func Load(path string) (Config, error) {
 	}
 
 	cfg := Default()
-	if err := json.Unmarshal(data, &cfg); err != nil {
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return Config{}, err
 	}
 
@@ -144,7 +145,7 @@ func WriteDefault(path string, overwrite bool) (bool, error) {
 		return false, err
 	}
 
-	data, err := json.MarshalIndent(Default(), "", "  ")
+	data, err := yaml.Marshal(Default())
 	if err != nil {
 		return false, err
 	}

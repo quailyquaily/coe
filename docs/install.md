@@ -48,7 +48,7 @@ systemctl --user restart coe.service
 
 Config file:
 
-- `~/.config/coe/config.json`
+- `~/.config/coe/config.yaml`
 
 Runtime state:
 
