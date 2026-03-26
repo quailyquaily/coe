@@ -153,7 +153,7 @@ func parseTriggerCommand(arg string) (control.Command, error) {
 }
 
 func printUsage() {
-	fmt.Println("coe - GNOME-first Wayland dictation assistant skeleton")
+	fmt.Println("coe - Coe dictation assistant for GNOME on Wayland")
 	fmt.Println()
 	fmt.Println("usage:")
 	fmt.Println("  coe doctor")

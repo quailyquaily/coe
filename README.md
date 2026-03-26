@@ -1,6 +1,6 @@
-# COE (聲)
+# Coe (聲)
 
-COE is a dictation tool for GNOME on Wayland, written in Go.
+Coe is a dictation tool for GNOME on Wayland, written in Go.
 
 It is a Linux-focused recreation of [`missuo/koe`](https://github.com/missuo/koe). The goal is the same: press a hotkey, speak, clean up the transcript, and put the result back into the active app.
 
@@ -8,11 +8,11 @@ It is a Linux-focused recreation of [`missuo/koe`](https://github.com/missuo/koe
 
 `coe` is close to `koe` on purpose. The project is a nod to Koe, but aimed at Linux and Wayland. The old kanji character `聲` means voice. That is the whole point of the tool.
 
-## Why COE?
+## Why Coe?
 
 Most Linux voice input tools fail in one of three ways. They depend on X11-era assumptions. They hide basic configuration behind a GUI. Or they do not fit the Wayland security model at all.
 
-COE takes a narrower path:
+Coe takes a narrower path:
 
 - It is GNOME-first and Wayland-first.
 - It runs in the background and keeps the UI surface small.
@@ -20,7 +20,7 @@ COE takes a narrower path:
 - It uses the platform path where possible: portal clipboard, portal paste, desktop notifications.
 - It keeps the degraded path explicit when Wayland blocks the ideal one.
 
-The scope is deliberately narrow. COE is trying to do one job well.
+The scope is deliberately narrow. Coe is trying to do one job well.
 
 ## How It Works
 
@@ -126,7 +126,7 @@ systemctl --user restart coe.service
 
 ## Configuration
 
-COE keeps its config in plain files.
+Coe keeps its config in plain files.
 
 Config file:
 
@@ -202,13 +202,13 @@ What does not exist yet:
 
 Portal access persistence:
 
-- If `persist_portal_access` is `true`, COE stores the portal restore token locally.
+- If `persist_portal_access` is `true`, Coe stores the portal restore token locally.
 - After the first successful authorization, later runs should reuse that token instead of prompting every time.
-- If GNOME or the portal backend rejects the stored token, COE falls back to a fresh authorization flow.
+- If GNOME or the portal backend rejects the stored token, Coe falls back to a fresh authorization flow.
 
 System notifications:
 
-- By default, COE sends GNOME desktop notifications for completed dictation and failure cases.
+- By default, Coe sends GNOME desktop notifications for completed dictation and failure cases.
 - Near-silent or corrupt captures are reported locally and skipped before network transcription.
 - Recording-start notifications stay off by default.
 

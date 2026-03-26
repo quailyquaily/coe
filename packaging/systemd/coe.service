@@ -1,5 +1,5 @@
 [Unit]
-Description=COE dictation daemon
+Description=Coe dictation daemon
 Documentation=https://github.com/missuo/koe
 Wants=graphical-session.target
 After=graphical-session.target

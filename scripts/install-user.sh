@@ -40,7 +40,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now coe.service
 
 echo
-echo "COE user service installed."
+echo "Coe user service installed."
 echo
 echo "Next steps:"
 echo "1. Put your OpenAI key in ${ENV_PATH}"

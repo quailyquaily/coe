@@ -1,4 +1,4 @@
-# COE Architecture
+# Coe Architecture
 
 ## 1. Goal
 

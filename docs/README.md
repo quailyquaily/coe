@@ -1,4 +1,4 @@
-# COE Docs
+# Coe Docs
 
 - [install.md](./install.md): alpha installation flow with `systemd --user`, env file setup, and GNOME shortcut wiring.
 - [architecture.md](./architecture.md): target architecture and the current shipped implementation split apart clearly.

@@ -4,7 +4,7 @@
 
 On the validated GNOME Wayland machine for this repository, `pw-record` can produce valid audio data and still exit with status `1` when the recording is stopped intentionally.
 
-This is not a COE-specific crash.
+This is not a Coe-specific crash.
 
 It is a consequence of how PipeWire's `pw-cat` / `pw-record` tool handles `SIGINT` and `SIGTERM`.
 
@@ -52,9 +52,9 @@ Relevant behavior:
 
 In other words, an interrupt-driven stop quits the main loop but does not automatically mark the stream as drained, so the program returns failure even though audio bytes have already been emitted.
 
-## Implication for COE
+## Implication for Coe
 
-COE should not treat every `pw-record exit 1` as a hard failure.
+Coe should not treat every `pw-record exit 1` as a hard failure.
 
 The safe rule used in this repository is:
 
@@ -64,7 +64,7 @@ The safe rule used in this repository is:
 
 then the stop is treated as successful.
 
-COE still treats `exit 1` as an error when:
+Coe still treats `exit 1` as an error when:
 
 - no audio bytes were captured
 - or `stderr` contains an actual error message

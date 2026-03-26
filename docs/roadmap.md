@@ -1,4 +1,4 @@
-# COE Roadmap
+# Coe Roadmap
 
 ## 1. Scope order
 

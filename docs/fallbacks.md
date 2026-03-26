@@ -1,4 +1,4 @@
-# COE Fallbacks
+# Coe Fallbacks
 
 ## Goal
 
