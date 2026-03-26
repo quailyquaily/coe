@@ -10,7 +10,8 @@ import (
 )
 
 type Result struct {
-	Text string
+	Text    string
+	Warning string
 }
 
 type Client interface {

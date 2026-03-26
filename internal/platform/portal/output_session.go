@@ -13,20 +13,20 @@ import (
 )
 
 const (
-	RemoteDesktopCreateSessionMethod          = RemoteDesktopInterface + ".CreateSession"
-	RemoteDesktopSelectDevicesMethod          = RemoteDesktopInterface + ".SelectDevices"
-	RemoteDesktopStartMethod                  = RemoteDesktopInterface + ".Start"
-	RemoteDesktopNotifyKeyboardKeycode        = RemoteDesktopInterface + ".NotifyKeyboardKeycode"
-	ClipboardRequestClipboardMethod           = ClipboardInterface + ".RequestClipboard"
-	ClipboardSetSelectionMethod               = ClipboardInterface + ".SetSelection"
-	ClipboardSelectionWriteMethod             = ClipboardInterface + ".SelectionWrite"
-	ClipboardSelectionWriteDoneMethod         = ClipboardInterface + ".SelectionWriteDone"
-	ClipboardSelectionTransferSignal          = ClipboardInterface + ".SelectionTransfer"
-	keyboardDeviceType                 uint32 = 1
-	keyStateReleased                   uint32 = 0
-	keyStatePressed                    uint32 = 1
-	leftCtrlKeycode                           = 29
-	vKeycode                                  = 47
+	RemoteDesktopCreateSessionMethod         = RemoteDesktopInterface + ".CreateSession"
+	RemoteDesktopSelectDevicesMethod         = RemoteDesktopInterface + ".SelectDevices"
+	RemoteDesktopStartMethod                 = RemoteDesktopInterface + ".Start"
+	RemoteDesktopNotifyKeyboardKeysym        = RemoteDesktopInterface + ".NotifyKeyboardKeysym"
+	ClipboardRequestClipboardMethod          = ClipboardInterface + ".RequestClipboard"
+	ClipboardSetSelectionMethod              = ClipboardInterface + ".SetSelection"
+	ClipboardSelectionWriteMethod            = ClipboardInterface + ".SelectionWrite"
+	ClipboardSelectionWriteDoneMethod        = ClipboardInterface + ".SelectionWriteDone"
+	ClipboardSelectionTransferSignal         = ClipboardInterface + ".SelectionTransfer"
+	keyboardDeviceType                uint32 = 1
+	keyStateReleased                  uint32 = 0
+	keyStatePressed                   uint32 = 1
+	leftCtrlKeysym                           = 0xffe3
+	vKeysym                                  = 0x0076
 )
 
 type RemoteDesktopOutputSession struct {
@@ -127,23 +127,23 @@ func (s *RemoteDesktopOutputSession) SendPaste(ctx context.Context) error {
 	}
 
 	events := []struct {
-		Keycode int32
-		State   uint32
+		Keysym int32
+		State  uint32
 	}{
-		{Keycode: leftCtrlKeycode, State: keyStatePressed},
-		{Keycode: vKeycode, State: keyStatePressed},
-		{Keycode: vKeycode, State: keyStateReleased},
-		{Keycode: leftCtrlKeycode, State: keyStateReleased},
+		{Keysym: leftCtrlKeysym, State: keyStatePressed},
+		{Keysym: vKeysym, State: keyStatePressed},
+		{Keysym: vKeysym, State: keyStateReleased},
+		{Keysym: leftCtrlKeysym, State: keyStateReleased},
 	}
 
 	for _, event := range events {
 		if err := s.client.obj.CallWithContext(
 			ctx,
-			RemoteDesktopNotifyKeyboardKeycode,
+			RemoteDesktopNotifyKeyboardKeysym,
 			0,
 			s.sessionHandle,
 			map[string]dbus.Variant{},
-			event.Keycode,
+			event.Keysym,
 			event.State,
 		).Store(); err != nil {
 			return err

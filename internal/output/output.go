@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"coe/internal/platform/portal"
 )
@@ -45,6 +46,8 @@ type Delivery struct {
 	PasteMethod      string
 	PasteWarning     string
 }
+
+const portalPasteDelay = 150 * time.Millisecond
 
 func (c *Coordinator) Summary() string {
 	if c == nil {
@@ -130,12 +133,20 @@ func (c *Coordinator) autoPaste(ctx context.Context, result *Delivery) error {
 		session, err := c.ensurePortal(ctx)
 		if err != nil {
 			portalErr = fmt.Errorf("portal paste session failed: %w", err)
-		} else if err := session.SendPaste(ctx); err != nil {
-			portalErr = fmt.Errorf("portal paste failed: %w", err)
-		} else {
-			result.PasteExecuted = true
-			result.PasteMethod = "portal"
-			return nil
+		} else if result.ClipboardMethod == "portal" {
+			if err := sleepContext(ctx, portalPasteDelay); err != nil {
+				portalErr = fmt.Errorf("portal paste delayed by context cancellation: %w", err)
+			}
+		}
+
+		if portalErr == nil && session != nil {
+			if err := session.SendPaste(ctx); err != nil {
+				portalErr = fmt.Errorf("portal paste failed: %w", err)
+			} else {
+				result.PasteExecuted = true
+				result.PasteMethod = "portal"
+				return nil
+			}
 		}
 	}
 
@@ -160,6 +171,18 @@ func (c *Coordinator) autoPaste(ctx context.Context, result *Delivery) error {
 		if portalErr != nil {
 			result.PasteWarning = portalErr.Error()
 		}
+		return nil
+	}
+}
+
+func sleepContext(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
 		return nil
 	}
 }

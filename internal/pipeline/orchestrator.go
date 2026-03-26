@@ -54,8 +54,13 @@ func (o Orchestrator) ProcessCapture(ctx context.Context, capture audio.Result) 
 		return Result{}, err
 	}
 	result.Transcript = transcribed.Text
+	if strings.TrimSpace(transcribed.Warning) != "" {
+		result.TranscriptWarning = transcribed.Warning
+	}
 	if strings.TrimSpace(result.Transcript) == "" {
-		result.TranscriptWarning = "ASR returned empty transcript; skipped correction and output"
+		if result.TranscriptWarning == "" {
+			result.TranscriptWarning = "ASR returned empty transcript; skipped correction and output"
+		}
 		return result, nil
 	}
 
