@@ -1,7 +1,0 @@
-{
-  "uuid": "coe-focus-helper@quaily.com",
-  "name": "Coe Focus Helper",
-  "description": "Expose the focused GNOME window over D-Bus for Coe.",
-  "shell-version": ["45", "46", "47", "48", "49"],
-  "url": "https://github.com/quailyquaily/coe"
-}
