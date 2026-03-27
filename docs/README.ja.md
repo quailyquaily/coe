@@ -104,17 +104,30 @@ go build -o coe ./cmd/coe
 現在の alpha を常駐するユーザーサービスとして入れるには:
 
 ```bash
-./scripts/install-user.sh
+./scripts/install.sh
 ```
 
-スクリプトは次を入れます。
+スクリプトは、マシンのアーキテクチャに合った GitHub Release tarball をダウンロードしてから、次を入れます。
 
 - `~/.local/bin/coe`
 - `~/.config/systemd/user/coe.service`
 - `~/.config/coe/env`
 - `~/.local/share/gnome-shell/extensions/coe-focus-helper@mistermorph.com`
 
-そのあと `~/.config/coe/env` に OpenAI キーを書き、サービスを再起動します。
+その後さらに:
+
+- `coe doctor` を実行
+- `coe.service` を再起動
+- `coe.service` が active か確認
+- バイナリ、設定、env、systemd unit、GNOME 拡張のインストール先を表示
+
+バージョンを固定することもできます。
+
+```bash
+./scripts/install.sh v0.0.4
+```
+
+クラウド ASR や LLM provider を使う場合は、必要な API キーを `~/.config/coe/env` に書くか、`~/.config/coe/config.yaml` に直接書いてください。インストール後は一度ログアウトして再ログインしてください。GNOME Shell とユーザーサービスセッションの両方が新しい拡張をきれいに読み直せます。必要ならその後でサービスを再起動します。
 
 ```bash
 systemctl --user restart coe.service
@@ -257,7 +270,7 @@ GNOME focus-aware paste については次を参照してください。
 - [config.example.yaml](../config.example.yaml)
 - [gnome-focus-helper.md](./gnome-focus-helper.md)
 
-古い設定を使っている場合は、`output.use_gnome_focus_helper: true` を手で足す必要があるかもしれません。
+新しく生成した設定では focus-aware paste はデフォルトで有効です。古い設定では、必要に応じて `output.use_gnome_focus_helper` を上書きできます。
 
 ## 現在の状態
 

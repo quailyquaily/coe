@@ -17,20 +17,33 @@ The current install target is:
 From the repository root:
 
 ```bash
-./scripts/install-user.sh
+./scripts/install.sh
 ```
 
-This does four things:
+This downloads the matching GitHub Release tarball for your machine and does five things:
 
-1. builds `./cmd/coe`
+1. downloads the release archive for your Linux architecture
 2. installs the binary to `~/.local/bin/coe`
 3. installs `packaging/systemd/coe.service` into `~/.config/systemd/user/`
 4. installs the GNOME focus helper extension into `~/.local/share/gnome-shell/extensions/`
 5. enables and starts the user service
 
-## Required secret
+After that it also:
 
-Put your OpenAI key in:
+- runs `coe doctor`
+- restarts `coe.service`
+- verifies that `coe.service` is active
+- prints where the binary, config, env file, systemd unit, and GNOME extension were installed
+
+You can pin a version explicitly:
+
+```bash
+./scripts/install.sh v0.0.4
+```
+
+## Credentials
+
+If you use cloud ASR or LLM providers, put the required API key in:
 
 - `~/.config/coe/env`
 
@@ -46,7 +59,7 @@ Then restart the service:
 systemctl --user restart coe.service
 ```
 
-If you prefer, you can keep `~/.config/coe/env` empty and store the key directly in `asr.api_key` and `llm.api_key` inside `~/.config/coe/config.yaml`.
+If you prefer, you can keep `~/.config/coe/env` empty and store provider-specific keys directly in `asr.api_key` and `llm.api_key` inside `~/.config/coe/config.yaml`.
 
 ## Default config and state
 
@@ -93,6 +106,8 @@ If `gnome-extensions` is available, the script will try to enable it. New config
 output:
   use_gnome_focus_helper: true
 ```
+
+After installation, log out and log back in once. That gives GNOME Shell and the `systemd --user` session a clean chance to pick up the new extension and user service environment.
 
 ## Useful commands
 

@@ -1,6 +1,6 @@
 [Unit]
 Description=Coe dictation daemon
-Documentation=https://github.com/missuo/koe
+Documentation=https://github.com/quailyquaily/coe
 Wants=graphical-session.target
 After=graphical-session.target
 

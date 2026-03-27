@@ -98,17 +98,30 @@ go build -o coe ./cmd/coe
 如果你想把当前 alpha 安装成常驻的用户级服务：
 
 ```bash
-./scripts/install-user.sh
+./scripts/install.sh
 ```
 
-脚本会安装：
+脚本会下载与你机器架构匹配的 GitHub Release tarball，然后安装：
 
 - `~/.local/bin/coe`
 - `~/.config/systemd/user/coe.service`
 - `~/.config/coe/env`
 - `~/.local/share/gnome-shell/extensions/coe-focus-helper@mistermorph.com`
 
-然后把你的 OpenAI key 填进 `~/.config/coe/env`，再重启服务：
+安装完以后还会：
+
+- 运行一次 `coe doctor`
+- 重启 `coe.service`
+- 检查 `coe.service` 是否处于 active
+- 打印二进制、配置、env、systemd unit 和 GNOME 扩展的安装位置
+
+你也可以显式指定版本：
+
+```bash
+./scripts/install.sh v0.0.4
+```
+
+如果你使用云端 ASR 或 LLM provider，把需要的 API key 填进 `~/.config/coe/env`，或者直接写进 `~/.config/coe/config.yaml`。安装完成后，先注销再登录一次，让 GNOME Shell 和用户级服务会话都干净地拿到新扩展。需要的话再重启服务：
 
 ```bash
 systemctl --user restart coe.service
@@ -251,7 +264,7 @@ asr:
 - [config.example.yaml](../config.example.yaml)
 - [gnome-focus-helper.md](./gnome-focus-helper.md)
 
-已有配置如果比较旧，可能还需要手动加上 `output.use_gnome_focus_helper: true`。
+新生成的配置默认开启 focus-aware paste。旧配置如果需要，也可以手动覆盖 `output.use_gnome_focus_helper`。
 
 ## 当前状态
 

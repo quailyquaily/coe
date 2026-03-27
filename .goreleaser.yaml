@@ -35,8 +35,11 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
+      - config.example.yaml
       - docs/install.md
+      - scripts/install.sh
       - packaging/systemd/coe.service
+      - packaging/gnome-shell-extension/coe-focus-helper@mistermorph.com/**
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"

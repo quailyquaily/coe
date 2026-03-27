@@ -98,17 +98,30 @@ go build -o coe ./cmd/coe
 If you want to install the current alpha as a persistent user service:
 
 ```bash
-./scripts/install-user.sh
+./scripts/install.sh
 ```
 
-The script installs:
+The script downloads the matching GitHub Release tarball for your Linux architecture, then installs:
 
 - `~/.local/bin/coe`
 - `~/.config/systemd/user/coe.service`
 - `~/.config/coe/env`
 - `~/.local/share/gnome-shell/extensions/coe-focus-helper@mistermorph.com`
 
-Then put your OpenAI key into `~/.config/coe/env` and restart the service:
+After installation it also:
+
+- runs `coe doctor`
+- restarts `coe.service`
+- checks whether `coe.service` is active
+- prints the installed file locations
+
+You can also pin a version:
+
+```bash
+./scripts/install.sh v0.0.4
+```
+
+If you use cloud ASR or LLM providers, put the required API key into `~/.config/coe/env` or write it directly into `~/.config/coe/config.yaml`. After install, log out and log back in once so GNOME Shell and the user service session both pick up the new extension cleanly. Then restart the service if needed:
 
 ```bash
 systemctl --user restart coe.service
@@ -251,7 +264,7 @@ For GNOME focus-aware paste, see:
 - [`config.example.yaml`](./config.example.yaml)
 - [`docs/gnome-focus-helper.md`](./docs/gnome-focus-helper.md)
 
-Older configs may still need `output.use_gnome_focus_helper: true` added manually.
+New configs enable focus-aware paste by default. Older configs can still override `output.use_gnome_focus_helper` if needed.
 
 ## Current Status
 
