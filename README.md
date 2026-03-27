@@ -1,53 +1,47 @@
 # Coe (聲)
 
-Coe is a dictation tool for GNOME on Wayland, written in Go.
+[English](./README.md) | [简体中文](./docs/README.zh-CN.md) | [日本語](./docs/README.ja.md)
 
-It is a Linux-focused recreation of [`missuo/koe`](https://github.com/missuo/koe). The goal is the same: press a hotkey, speak, clean up the transcript, and put the result back into the active app.
+Coe is a dictation tool for GNOME on Wayland on Linux.
+
+It is a Linux-focused recreation of [`missuo/koe`](https://github.com/missuo/koe). The goal has not changed: press a hotkey, speak, let an LLM clean up the transcript, and put the text back into the active app.
 
 ## The Name
 
-`coe` is close to `koe` on purpose. The project is a nod to Koe, but aimed at Linux and Wayland. The old kanji character `聲` means voice. That is the whole point of the tool.
+`coe` is close to `koe` on purpose. This project nods to Koe, but it targets Linux and Wayland. The old kanji `聲` means voice. That is the job.
 
 ## Why Coe?
 
-Most Linux voice input tools fail in one of three ways. They depend on X11-era assumptions. They hide basic configuration behind a GUI. Or they do not fit the Wayland security model at all.
+Most Linux voice input tools are not pleasant to use. Coe tries to make this usable:
 
-Coe takes a narrower path:
-
-- It is GNOME-first and Wayland-first.
-- It runs in the background and keeps the UI surface small.
-- It stores configuration in plain YAML.
-- It uses the platform path where possible: portal clipboard, portal paste, desktop notifications.
-- It keeps the degraded path explicit when Wayland blocks the ideal one.
-
-The scope is deliberately narrow. Coe is trying to do one job well.
+- GNOME first, Wayland first
+- Background process, minimal UI surface
+- Plain YAML config
+- Reuse platform capabilities first: portal clipboard, portal paste, desktop notifications
+- Keep a degraded fallback path
 
 ## How It Works
 
-The verified path today is:
-
-`GNOME custom shortcut -> coe trigger toggle -> pw-record -> OpenAI ASR -> OpenAI LLM correction -> portal clipboard -> portal auto-paste`
-
 The runtime flow is:
 
-1. Trigger dictation with `coe trigger toggle`, usually from a GNOME custom shortcut that Coe ensures at startup when `GlobalShortcuts` is unavailable.
-2. Record microphone input with `pw-record`.
-3. Reject near-silent or obviously corrupt captures before they leave the machine.
-4. Send the audio to OpenAI Audio Transcriptions.
-5. Send the transcript to an OpenAI-compatible text model for cleanup.
-6. Write the corrected text through the clipboard path.
-7. Paste it back into the focused app when the runtime allows it.
+1. Keep `coe serve` running.
+2. Trigger dictation with `coe trigger toggle`. Today GNOME usually calls this through a custom shortcut. When `GlobalShortcuts` is missing, Coe inserts and maintains that shortcut at startup.
+3. Record microphone input with `pw-record`.
+4. Reject near-silent or obviously corrupt captures before they leave the machine.
+5. Send the audio to ASR. Today that means OpenAI Audio Transcriptions.
+6. Optionally send the transcript to an OpenAI-compatible text model for cleanup.
+7. Write the corrected text through the clipboard path.
+8. Paste it back into the focused app when the runtime allows it.
 
-Current provider support is intentionally narrow:
+Notes:
 
-- ASR: OpenAI Audio Transcriptions
 - ASR: optional local `whisper.cpp` provider through `whisper-cli`
-- LLM correction: OpenAI-compatible Responses API or Chat Completions through `uniai`
+- LLM correction: OpenAI-compatible Chat Completions through `uniai` by default, or Responses API when configured
 - Output: portal clipboard and portal paste first, `wl-copy` and `ydotool` as fallbacks
 
 ## Installation
 
-### Requirements
+### Install Dependencies
 
 Runtime requirements:
 
@@ -61,10 +55,10 @@ You can keep the key in `~/.config/coe/env`, or write it directly into `asr.api_
 
 Optional:
 
-- `ydotool` if you want to try the command-line paste fallback
-- `whisper-cli` and a Whisper model file if you want local ASR
+- `ydotool`, if you want to try the command-line paste fallback
+- `whisper-cli` and a Whisper model file, if you want local ASR
 
-On Ubuntu, you can install the command-line dependencies with:
+On Ubuntu, install the command-line dependencies with:
 
 ```bash
 sudo apt update
@@ -77,24 +71,13 @@ Optional paste fallback:
 sudo apt install -y ydotool
 ```
 
-### Release
+### Download a Prebuilt Package
 
-GitHub Actions builds Linux release artifacts with GoReleaser.
+[Download](https://github.com/quailyquaily/coe/releases)
 
-- Pull requests and pushes to the default branch run a snapshot build and upload Linux artifacts to the workflow run.
-- Tags that match `v*` run `goreleaser release` and publish Linux binaries, tarballs, and checksums to the GitHub release.
-
-The release config lives in [`.goreleaser.yaml`](./.goreleaser.yaml). The workflow lives in [`.github/workflows/release.yml`](./.github/workflows/release.yml).
-
-### Build from Source
+### Or Build from Source
 
 #### Prerequisites
-
-- Go `1.24+`
-- a Linux machine
-- the runtime requirements listed above if you want to run the built binary
-
-#### Build
 
 ```bash
 git clone https://github.com/quailyquaily/coe.git
@@ -102,15 +85,15 @@ cd coe
 go build -o coe ./cmd/coe
 ```
 
-#### Run
+## Run
 
 ```bash
 ./coe serve
 ```
 
-### Install As A User Service
+### Install as a User `systemd` Service
 
-To install the current alpha as a persistent user service:
+If you want to install the current alpha as a persistent user service:
 
 ```bash
 ./scripts/install-user.sh
@@ -129,11 +112,17 @@ Then put your OpenAI key into `~/.config/coe/env` and restart the service:
 systemctl --user restart coe.service
 ```
 
-If you prefer, you can leave `~/.config/coe/env` empty and store the key in `asr.api_key` and `llm.api_key` instead.
+If you prefer, you can also leave `~/.config/coe/env` empty and write the key directly into `~/.config/coe/config.yaml` under `asr.api_key` and `llm.api_key`.
+
+## Hotkey to Start and Stop Dictation
+
+- name: `coe-trigger`
+- default shortcut: `<Shift><Super>d`
+- on GNOME fallback, Coe tries to ensure a matching custom shortcut at startup
 
 ## Configuration
 
-Coe keeps its config in plain files.
+Coe uses plain files for configuration.
 
 Config file:
 
@@ -145,7 +134,7 @@ Runtime state:
 - `XDG_STATE_HOME/coe/state.json`
 - fallback: `~/.config/coe/state.json`
 
-The state file stores the portal restore token used to avoid repeated authorization prompts when the desktop backend accepts persistence.
+The state file stores the portal restore token so repeated authorization prompts can be reduced when the desktop backend supports persistence.
 
 Create the default config with:
 
@@ -153,7 +142,7 @@ Create the default config with:
 go run ./cmd/coe config init
 ```
 
-That writes `~/.config/coe/config.yaml`, unless `COE_CONFIG` overrides the path.
+That writes `~/.config/coe/config.yaml`, unless you override the path with `COE_CONFIG`.
 
 Or start from the repo example:
 
@@ -161,7 +150,7 @@ Or start from the repo example:
 cp config.example.yaml ~/.config/coe/config.yaml
 ```
 
-The current defaults are:
+Current defaults:
 
 ### ASR
 
@@ -169,9 +158,9 @@ The current defaults are:
 - endpoint: `https://api.openai.com/v1/audio/transcriptions`
 - model: `gpt-4o-mini-transcribe`
 - direct key field: `asr.api_key`
-- api key env: `OPENAI_API_KEY`
+- environment field: `OPENAI_API_KEY`
 
-To switch ASR to local `whisper.cpp`, set:
+To switch to local `whisper.cpp`:
 
 ```yaml
 asr:
@@ -191,20 +180,20 @@ Notes:
 
 - `binary` defaults to `whisper-cli`
 - `model_path` is required for `whisper.cpp`
-- `prompt` is passed as the initial prompt
+- `prompt` is passed through as the initial prompt
 - `threads` defaults to `GOMAXPROCS`
 - `use_gpu: false` adds `--no-gpu`
 
-### LLM correction
+### LLM Correction
 
 - provider: `openai`
 - endpoint type: `chat`
 - endpoint: `https://api.openai.com/v1`
 - model: `gpt-4o-mini`
 - direct key field: `llm.api_key`
-- api key env: `OPENAI_API_KEY`
+- environment field: `OPENAI_API_KEY`
 
-Set `llm.endpoint_type: responses` if you want Coe to call the OpenAI Responses API instead. The default route is Chat Completions through `uniai`.
+If you want to use the OpenAI Responses API instead, set `llm.endpoint_type` to `responses`.
 
 ### Audio
 
@@ -216,9 +205,9 @@ Set `llm.endpoint_type: responses` if you want Coe to call the OpenAI Responses 
 ### Output
 
 - clipboard: `wl-copy`
-- clipboard and paste prefer portal paths when the runtime exposes them
+- when the runtime exposes portal support, clipboard and paste prefer portal
 - `wl-copy` and `ydotool` remain command-line fallbacks
-- GNOME focus-aware paste is enabled by default in new configs and can switch from `Ctrl+V` to `Ctrl+Shift+V` for terminal-like targets
+- new configs enable GNOME focus-aware paste by default, so terminal-like targets can switch from `Ctrl+V` to `Ctrl+Shift+V`
 
 ### Notifications
 
@@ -232,39 +221,46 @@ Set `llm.endpoint_type: responses` if you want Coe to call the OpenAI Responses 
 - set `log_level: debug` to print per-stage timings and output fallback details
 - or override it for one run: `coe serve --log-level debug`
 
-See [`config.example.yaml`](./config.example.yaml) and [`docs/gnome-focus-helper.md`](./docs/gnome-focus-helper.md) for the GNOME focus-aware paste route. Existing configs may need `output.use_gnome_focus_helper: true` added manually.
+For GNOME focus-aware paste, see:
 
-## Current Behavior
+- [`config.example.yaml`](./config.example.yaml)
+- [`docs/gnome-focus-helper.md`](./docs/gnome-focus-helper.md)
 
-What works:
+Older configs may still need `output.use_gnome_focus_helper: true` added manually.
 
-- GNOME Wayland fallback trigger via an auto-managed GNOME custom shortcut that runs `coe trigger toggle`
-- microphone capture through `pw-record`
-- batch transcription through OpenAI Audio Transcriptions
-- transcript cleanup through OpenAI Responses
-- final text written through portal clipboard
-- final text auto-pasted through portal keyboard injection
-- GNOME desktop notifications for completion and failure
-- near-silent recordings are short-circuited locally before ASR
-- severely clipped or corrupted recordings are short-circuited locally before ASR
+## Current Status
 
-What does not exist yet:
+Working:
 
-- `GlobalShortcuts` portal support
-- a KDE or Hyprland validation pass in this repo
-- a stronger answer for the upstream microphone/PipeWire saturation issue
+- [x] GNOME Wayland fallback trigger through an auto-managed GNOME custom shortcut that runs `coe trigger toggle`
+- [x] microphone capture through `pw-record`
+- [x] batch transcription through OpenAI Audio Transcriptions
+- [x] transcript cleanup through OpenAI-compatible Chat Completions by default, with Responses as an option
+- [x] final text written through portal clipboard
+- [x] final text auto-pasted through portal keyboard injection
+- [x] GNOME desktop notifications
+- [x] near-silent captures are short-circuited locally before ASR
+- [x] severely clipped or corrupted captures are short-circuited locally before ASR
+
+Missing:
+
+- [ ] `GlobalShortcuts` portal support
+- [ ] a KDE or Hyprland validation pass
+- [ ] a stronger answer for the upstream microphone / PipeWire saturation issue
+
+## Other
 
 Portal access persistence:
 
-- If `persist_portal_access` is `true`, Coe stores the portal restore token locally.
-- After the first successful authorization, later runs should reuse that token instead of prompting every time.
-- If GNOME or the portal backend rejects the stored token, Coe falls back to a fresh authorization flow.
+- If `persist_portal_access` is `true`, Coe stores the portal restore token locally
+- After the first successful authorization, later runs try to reuse that token instead of prompting every time
+- If GNOME or the portal backend rejects the stored token, Coe falls back to a fresh authorization flow
 
 System notifications:
 
-- By default, Coe sends GNOME desktop notifications for completed dictation and failure cases.
-- Near-silent or corrupt captures are reported locally and skipped before network transcription.
-- Recording-start notifications stay off by default.
+- By default, Coe sends GNOME desktop notifications for successful dictation and failure cases
+- Near-silent or corrupt captures are reported locally and skipped before network transcription
+- Recording-start notifications stay off by default
 
 ## Commands
 
