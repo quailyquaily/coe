@@ -34,7 +34,7 @@ Coe は、もっと実用的な形を狙います。
 2. `coe trigger toggle` でディクテーションを開始します。現在は GNOME のカスタムショートカットから呼ばれます。`GlobalShortcuts` がない場合、Coe は起動時にそのショートカットを挿入し、存在を維持します。
 3. `pw-record` でマイク入力を録音します。
 4. 音声を外へ送る前に、ほぼ無音または明らかに壊れた録音を弾きます。
-5. 音声を ASR に送ります。現状では OpenAI Audio Transcriptions です。
+5. 音声を ASR に送ります。デフォルトは OpenAI Audio Transcriptions ですが、provider は差し替え可能です。
 6. 必要なら、転写結果を OpenAI 互換のテキストモデルへ送り、整形します。
 7. 整形したテキストをクリップボード経由で書き戻します。
 8. 実行環境が許す場合、フォーカス中のアプリへそのまま貼り付けます。
@@ -42,6 +42,7 @@ Coe は、もっと実用的な形を狙います。
 補足:
 
 - ASR: `whisper-cli` 経由のローカル `whisper.cpp` にも対応
+- ASR: 外部の `SenseVoice` FastAPI にも対応可能
 - LLM 整形: デフォルトでは `uniai` 経由の OpenAI 互換 Chat Completions。設定で Responses API にも切り替え可能
 - 出力: portal clipboard と portal paste を優先し、`wl-copy` と `ydotool` を fallback として残す
 
@@ -63,6 +64,7 @@ Coe は、もっと実用的な形を狙います。
 
 - `ydotool`。コマンドラインの paste fallback を試したい場合
 - `whisper-cli` と Whisper モデルファイル。ローカル ASR を使いたい場合
+- 動作中の SenseVoice FastAPI サービス。SenseVoice 経由のローカルネットワーク ASR を使いたい場合
 
 Ubuntu では、コマンドライン依存を次のように入れられます。
 
@@ -190,6 +192,29 @@ asr:
 - `threads` のデフォルトは `GOMAXPROCS`
 - `use_gpu: false` は `--no-gpu` を付けます
 
+SenseVoice FastAPI に切り替えるには:
+
+```yaml
+asr:
+  provider: sensevoice
+  endpoint: http://127.0.0.1:50000/api/v1/asr
+  model: ""
+  language: auto
+  api_key: ""
+  api_key_env: ""
+  binary: ""
+  model_path: ""
+  threads: 0
+  use_gpu: false
+```
+
+補足:
+
+- `endpoint` は公式 SenseVoice FastAPI サービスを指す必要があります
+- `language` はサービスの `lang` フォームフィールドに対応します。例: `auto`, `zh`, `en`, `yue`, `ja`, `ko`
+- Coe は毎回 1 つの WAV を送り、返ってきた `result` 配列の最初の要素を使います
+- 公式リポジトリでは `uvicorn api:app --host 0.0.0.0 --port 50000` で起動すると、既定の URL は `http://127.0.0.1:50000/api/v1/asr` です
+
 ### LLM 整形
 
 - provider: `openai`
@@ -241,6 +266,7 @@ GNOME focus-aware paste については次を参照してください。
 - [x] 自動管理される GNOME カスタムショートカットから `coe trigger toggle` を実行する GNOME Wayland fallback trigger
 - [x] `pw-record` によるマイク録音
 - [x] OpenAI Audio Transcriptions によるバッチ転写
+- [x] 任意の SenseVoice FastAPI ASR provider
 - [x] デフォルトでは OpenAI 互換 Chat Completions による整形。Responses も選択可能
 - [x] portal clipboard による最終テキストの書き込み
 - [x] portal のキーボード注入による自動貼り付け

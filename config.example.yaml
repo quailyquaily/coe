@@ -31,9 +31,11 @@ audio:
 asr:
   # ASR provider name.
   # Use `openai` for cloud ASR.
+  # Use `sensevoice` for an external SenseVoice FastAPI service.
   # Use `whispercpp` for local ASR through `whisper-cli`.
   provider: openai
-  # Full HTTP endpoint for cloud transcription.
+  # Full HTTP endpoint for HTTP-based ASR providers.
+  # For `sensevoice`, leaving this empty falls back to http://127.0.0.1:50000/api/v1/asr.
   endpoint: https://api.openai.com/v1/audio/transcriptions
   # ASR model name.
   model: gpt-4o-mini-transcribe
@@ -119,6 +121,21 @@ notifications:
 #   binary: whisper-cli
 #   model_path: /absolute/path/to/ggml-base.bin
 #   threads: 4
+#   use_gpu: false
+#
+# Example SenseVoice FastAPI profile:
+#
+# asr:
+#   provider: sensevoice
+#   endpoint: http://127.0.0.1:50000/api/v1/asr
+#   model: ""
+#   language: auto
+#   prompt: ""
+#   api_key: ""
+#   api_key_env: ""
+#   binary: ""
+#   model_path: ""
+#   threads: 0
 #   use_gpu: false
 #
 # Example focus-aware paste on GNOME:

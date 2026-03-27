@@ -41,6 +41,11 @@ func NewClient(provider config.ASRConfig) (Client, error) {
 			Threads:   provider.Threads,
 			UseGPU:    provider.UseGPU,
 		}, nil
+	case "sensevoice":
+		return SenseVoiceHTTPClient{
+			Endpoint: provider.Endpoint,
+			Language: provider.Language,
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported ASR provider %q", provider.Provider)
 	}

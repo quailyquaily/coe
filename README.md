@@ -28,7 +28,7 @@ The runtime flow is:
 2. Trigger dictation with `coe trigger toggle`. Today GNOME usually calls this through a custom shortcut. When `GlobalShortcuts` is missing, Coe inserts and maintains that shortcut at startup.
 3. Record microphone input with `pw-record`.
 4. Reject near-silent or obviously corrupt captures before they leave the machine.
-5. Send the audio to ASR. Today that means OpenAI Audio Transcriptions.
+5. Send the audio to ASR. OpenAI Audio Transcriptions is the default, but the provider is configurable.
 6. Optionally send the transcript to an OpenAI-compatible text model for cleanup.
 7. Write the corrected text through the clipboard path.
 8. Paste it back into the focused app when the runtime allows it.
@@ -36,6 +36,7 @@ The runtime flow is:
 Notes:
 
 - ASR: optional local `whisper.cpp` provider through `whisper-cli`
+- ASR: optional external `SenseVoice` FastAPI provider
 - LLM correction: OpenAI-compatible Chat Completions through `uniai` by default, or Responses API when configured
 - Output: portal clipboard and portal paste first, `wl-copy` and `ydotool` as fallbacks
 
@@ -57,6 +58,7 @@ Optional:
 
 - `ydotool`, if you want to try the command-line paste fallback
 - `whisper-cli` and a Whisper model file, if you want local ASR
+- a running SenseVoice FastAPI service, if you want local network ASR through SenseVoice
 
 On Ubuntu, install the command-line dependencies with:
 
@@ -184,6 +186,29 @@ Notes:
 - `threads` defaults to `GOMAXPROCS`
 - `use_gpu: false` adds `--no-gpu`
 
+To switch to SenseVoice FastAPI:
+
+```yaml
+asr:
+  provider: sensevoice
+  endpoint: http://127.0.0.1:50000/api/v1/asr
+  model: ""
+  language: auto
+  api_key: ""
+  api_key_env: ""
+  binary: ""
+  model_path: ""
+  threads: 0
+  use_gpu: false
+```
+
+Notes:
+
+- `endpoint` should point at the official SenseVoice FastAPI service
+- `language` maps to the service `lang` form field, for example `auto`, `zh`, `en`, `yue`, `ja`, `ko`
+- Coe uploads one WAV file per request and uses the first entry from the returned `result` array
+- the official repo exposes this service at `http://127.0.0.1:50000/api/v1/asr` when started with `uvicorn api:app --host 0.0.0.0 --port 50000`
+
 ### LLM Correction
 
 - provider: `openai`
@@ -235,6 +260,7 @@ Working:
 - [x] GNOME Wayland fallback trigger through an auto-managed GNOME custom shortcut that runs `coe trigger toggle`
 - [x] microphone capture through `pw-record`
 - [x] batch transcription through OpenAI Audio Transcriptions
+- [x] optional SenseVoice FastAPI ASR provider
 - [x] transcript cleanup through OpenAI-compatible Chat Completions by default, with Responses as an option
 - [x] final text written through portal clipboard
 - [x] final text auto-pasted through portal keyboard injection

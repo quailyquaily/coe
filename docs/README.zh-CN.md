@@ -28,7 +28,7 @@ Coe 是一个 Linux 上面向 GNOME on Wayland 的听写工具。
 2. 用 `coe trigger toggle` 触发听写（目前由 GNOME 自定义快捷键调用；在没有 `GlobalShortcuts` 时，Coe 会在启动时插入这个自定义快捷键，自动确保这条快捷键存在）
 3. 用 `pw-record` 录制麦克风输入。
 4. 在音频离开本机前，先拦截接近静音或明显损坏的录音。
-5. 把音频发送到 ASR（目前是 OpenAI Audio Transcriptions）。
+5. 把音频发送到 ASR。默认是 OpenAI Audio Transcriptions，但 provider 可配置。
 6. 可选：把转写文本发送给一个 OpenAI 兼容文本模型做矫正。
 7. 通过剪贴板路径写回修正后的文本。
 8. 在运行环境允许时，把文本自动粘贴回当前聚焦应用。
@@ -36,6 +36,7 @@ Coe 是一个 Linux 上面向 GNOME on Wayland 的听写工具。
 备注：
 
 - ASR：可选的本地 `whisper.cpp`，通过 `whisper-cli`
+- ASR：可选的外部 `SenseVoice` FastAPI 服务
 - LLM 校正：默认走 `uniai` 上的 OpenAI 兼容 Chat Completions，也可配置为 Responses API
 - 输出：优先 portal clipboard 和 portal paste，`wl-copy` 与 `ydotool` 作为 fallback
 
@@ -57,6 +58,7 @@ Coe 是一个 Linux 上面向 GNOME on Wayland 的听写工具。
 
 - `ydotool`，如果你想试命令行粘贴 fallback
 - `whisper-cli` 和一个 Whisper 模型文件，如果你想用本地 ASR
+- 一个正在运行的 SenseVoice FastAPI 服务，如果你想通过 SenseVoice 做本地网络 ASR
 
 在 Ubuntu 上，可以这样安装命令行依赖：
 
@@ -184,6 +186,29 @@ asr:
 - `threads` 默认取 `GOMAXPROCS`
 - `use_gpu: false` 会加上 `--no-gpu`
 
+如果你要切到 SenseVoice FastAPI：
+
+```yaml
+asr:
+  provider: sensevoice
+  endpoint: http://127.0.0.1:50000/api/v1/asr
+  model: ""
+  language: auto
+  api_key: ""
+  api_key_env: ""
+  binary: ""
+  model_path: ""
+  threads: 0
+  use_gpu: false
+```
+
+说明：
+
+- `endpoint` 指向官方 SenseVoice FastAPI 服务
+- `language` 会映射到服务的 `lang` 表单字段，比如 `auto`、`zh`、`en`、`yue`、`ja`、`ko`
+- Coe 每次上传一个 WAV 文件，并使用返回 `result` 数组里的第一条文本
+- 官方仓库用 `uvicorn api:app --host 0.0.0.0 --port 50000` 启动后，默认服务地址就是 `http://127.0.0.1:50000/api/v1/asr`
+
 ### LLM 校正
 
 - provider：`openai`
@@ -235,6 +260,7 @@ asr:
 - [x] GNOME Wayland fallback trigger：通过自动管理的 GNOME 自定义快捷键执行 `coe trigger toggle`
 - [x] 通过 `pw-record` 录制麦克风
 - [x] 通过 OpenAI Audio Transcriptions 做批量转写
+- [x] 可选的 SenseVoice FastAPI ASR provider
 - [x] 默认通过 OpenAI 兼容 Chat Completions 做文本清洗，也支持 Responses
 - [x] 通过 portal clipboard 写回最终文本
 - [x] 通过 portal 键盘注入自动粘贴最终文本
