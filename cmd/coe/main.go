@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+
+	"coe/internal/config"
 )
 
 var (
@@ -24,6 +26,13 @@ func run(parent context.Context, args []string) error {
 	if len(args) == 0 {
 		printUsage()
 		return nil
+	}
+
+	switch args[0] {
+	case "doctor", "serve":
+		if err := config.LoadEnvFile(); err != nil {
+			return err
+		}
 	}
 
 	switch args[0] {

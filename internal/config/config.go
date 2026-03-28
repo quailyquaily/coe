@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -152,6 +153,23 @@ func ResolvePath() (string, error) {
 	return filepath.Join(base, "coe", "config.yaml"), nil
 }
 
+func ResolveEnvPath() (string, error) {
+	base, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(base, "coe", "env"), nil
+}
+
+func LoadEnvFile() error {
+	path, err := ResolveEnvPath()
+	if err != nil {
+		return err
+	}
+	return loadEnvFile(path)
+}
+
 func LoadOrDefault(path string) (Config, error) {
 	cfg, err := Load(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -246,4 +264,52 @@ func SetValue(cfg *Config, key, value string) error {
 	default:
 		return errors.New("unsupported config key: " + key)
 	}
+}
+
+func loadEnvFile(path string) error {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for i, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "export ") {
+			line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+		}
+
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			return fmt.Errorf("invalid env line %d in %s", i+1, path)
+		}
+		key = strings.TrimSpace(key)
+		if key == "" {
+			return fmt.Errorf("invalid env line %d in %s: empty key", i+1, path)
+		}
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+
+		value = strings.TrimSpace(value)
+		if len(value) >= 2 {
+			if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
+				value = strings.Trim(value, "\"")
+			} else if strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") {
+				value = strings.Trim(value, "'")
+			}
+		}
+
+		if err := os.Setenv(key, value); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

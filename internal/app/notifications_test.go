@@ -36,6 +36,22 @@ func TestNotificationForProcessingWithPreviewAndPaste(t *testing.T) {
 	}
 }
 
+func TestNotificationForServiceReady(t *testing.T) {
+	t.Parallel()
+
+	instance := &App{
+		Config: config.Default(),
+	}
+
+	msg := instance.notificationForServiceReady()
+	if msg.Title != "Coe service ready" {
+		t.Fatalf("unexpected title %q", msg.Title)
+	}
+	if got := msg.Body; got != "Background service is running and ready for dictation.\nTrigger: <Shift><Super>d" {
+		t.Fatalf("unexpected body %q", got)
+	}
+}
+
 func TestNotificationForProcessingWithoutTranscript(t *testing.T) {
 	t.Parallel()
 

@@ -86,3 +86,57 @@ func TestSetValueRejectsUnsupportedKey(t *testing.T) {
 		t.Fatal("expected unsupported config key to fail")
 	}
 }
+
+func TestLoadEnvFileLoadsMissingKeysFromEnvFile(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tempDir)
+	t.Setenv("OPENAI_API_KEY", "")
+	t.Setenv("SENSEVOICE_TOKEN", "")
+	if err := os.Unsetenv("OPENAI_API_KEY"); err != nil {
+		t.Fatalf("Unsetenv(OPENAI_API_KEY) error = %v", err)
+	}
+	if err := os.Unsetenv("SENSEVOICE_TOKEN"); err != nil {
+		t.Fatalf("Unsetenv(SENSEVOICE_TOKEN) error = %v", err)
+	}
+
+	envDir := filepath.Join(tempDir, "coe")
+	if err := os.MkdirAll(envDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	data := []byte("# comment\nOPENAI_API_KEY=file-key\nexport SENSEVOICE_TOKEN=\"quoted-token\"\n")
+	if err := os.WriteFile(filepath.Join(envDir, "env"), data, 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := LoadEnvFile(); err != nil {
+		t.Fatalf("LoadEnvFile() error = %v", err)
+	}
+	if got := os.Getenv("OPENAI_API_KEY"); got != "file-key" {
+		t.Fatalf("OPENAI_API_KEY = %q, want %q", got, "file-key")
+	}
+	if got := os.Getenv("SENSEVOICE_TOKEN"); got != "quoted-token" {
+		t.Fatalf("SENSEVOICE_TOKEN = %q, want %q", got, "quoted-token")
+	}
+}
+
+func TestLoadEnvFileDoesNotOverrideExistingEnv(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tempDir)
+	t.Setenv("OPENAI_API_KEY", "shell-key")
+
+	envDir := filepath.Join(tempDir, "coe")
+	if err := os.MkdirAll(envDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	data := []byte("OPENAI_API_KEY=file-key\n")
+	if err := os.WriteFile(filepath.Join(envDir, "env"), data, 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := LoadEnvFile(); err != nil {
+		t.Fatalf("LoadEnvFile() error = %v", err)
+	}
+	if got := os.Getenv("OPENAI_API_KEY"); got != "shell-key" {
+		t.Fatalf("OPENAI_API_KEY = %q, want %q", got, "shell-key")
+	}
+}

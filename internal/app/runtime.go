@@ -72,6 +72,7 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	a.emitServiceReadyNotification(logger)
 
 	var captureSession audio.CaptureSession
 	var captureSource string

@@ -25,6 +25,38 @@ func (a *App) emitNotification(logger *slog.Logger, msg notify.Message) {
 	}
 }
 
+func (a *App) emitServiceReadyNotification(logger *slog.Logger) {
+	msg := a.notificationForServiceReady()
+	if msg.Title == "" {
+		return
+	}
+
+	service := a.Notifier
+	shouldClose := false
+	if service == nil || service.Summary() == "disabled" {
+		connected, err := notify.ConnectSession("coe")
+		if err != nil {
+			logger.Warn("service-ready notification unavailable", "error", err)
+			return
+		}
+		service = connected
+		shouldClose = true
+	}
+
+	if shouldClose {
+		defer func() {
+			_ = service.Close()
+		}()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), notificationTimeout)
+	defer cancel()
+
+	if err := service.Send(ctx, msg); err != nil {
+		logger.Warn("service-ready notification warning", "error", err)
+	}
+}
+
 func (a *App) notificationForStart() notify.Message {
 	if !a.Config.Notifications.NotifyOnRecordingStart {
 		return notify.Message{}
@@ -35,6 +67,20 @@ func (a *App) notificationForStart() notify.Message {
 		Body:    "Speak now, then trigger again to stop recording.",
 		Urgency: notify.UrgencyLow,
 		Timeout: 2200 * time.Millisecond,
+	}
+}
+
+func (a *App) notificationForServiceReady() notify.Message {
+	lines := []string{"Background service is running and ready for dictation."}
+	if trigger := strings.TrimSpace(a.TriggerKey(context.Background())); trigger != "" {
+		lines = append(lines, "Trigger: "+trigger)
+	}
+
+	return notify.Message{
+		Title:   "Coe service ready",
+		Body:    strings.Join(lines, "\n"),
+		Urgency: notify.UrgencyNormal,
+		Timeout: 5000 * time.Millisecond,
 	}
 }
 
