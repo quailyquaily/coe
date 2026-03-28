@@ -14,9 +14,16 @@ permissions:
   contents: read
 
 jobs:
-  snapshot:
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+  build-bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -28,48 +35,47 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Set up GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          version: "~> v2"
-          install-only: true
+      - name: Install native bundle dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config g++ libfcitx5core-dev libfcitx5utils-dev libdbus-1-dev
 
-      - name: Build Linux snapshot artifacts
-        run: goreleaser release --snapshot --clean
+      - name: Build release bundle
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('0.0.0-snapshot-{0}', github.sha) }}
+        run: |
+          chmod +x ./scripts/build-release-bundle.sh ./scripts/build-fcitx-module.sh ./scripts/install.sh
+          ./scripts/build-release-bundle.sh "${VERSION}" "${{ matrix.arch }}" dist
 
-      - name: Upload snapshot artifacts
+      - name: Upload bundle artifact
         uses: actions/upload-artifact@v4
         with:
-          name: coe-linux-snapshot-${{ github.sha }}
-          path: |
-            dist/**
+          name: coe-linux-${{ matrix.arch }}
+          path: dist/*.tar.gz
           if-no-files-found: error
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-bundle
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
+      - name: Download bundle artifacts
+        uses: actions/download-artifact@v4
         with:
-          fetch-depth: 0
+          path: dist
+          merge-multiple: true
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum coe_*.tar.gz > "coe_${GITHUB_REF_NAME#v}_checksums.txt"
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
         with:
-          go-version-file: go.mod
-
-      - name: Set up GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          version: "~> v2"
-          install-only: true
-
-      - name: Release Linux artifacts
-        run: goreleaser release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true
+          files: |
+            dist/coe_*.tar.gz
+            dist/coe_*_checksums.txt

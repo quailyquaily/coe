@@ -224,3 +224,30 @@ func WriteDefault(path string, overwrite bool) (bool, error) {
 
 	return true, nil
 }
+
+func Save(path string, cfg Config) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, append(data, '\n'), 0o644)
+}
+
+func SetValue(cfg *Config, key, value string) error {
+	switch strings.TrimSpace(key) {
+	case "runtime.mode":
+		normalized := NormalizeRuntimeMode(value)
+		if !IsSupportedRuntimeMode(normalized) {
+			return errors.New("unsupported runtime.mode: " + value)
+		}
+		cfg.Runtime.Mode = normalized
+		return nil
+	default:
+		return errors.New("unsupported config key: " + key)
+	}
+}

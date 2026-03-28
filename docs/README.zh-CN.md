@@ -2,11 +2,11 @@
 
 [English](../README.md) | [日本語](./README.ja.md)
 
-Coe 是一个 Linux 上面向 GNOME on Wayland 的语音输入法。
+Coe 是一个 Linux 桌面上的语音输入工具。
 
 它是对 [`missuo/koe`](https://github.com/missuo/koe) 的 Linux 向致敬。目标没有变：按下热键，说话，让 LLM 整理转写结果，再把文本放回当前应用。
 
-> 当前唯一完整打磨过的目标平台是 GNOME on Wayland。其他 Linux 桌面或 X11 会话，也许能跑通部分链路。欢迎试试看。
+> 目前真正打磨过的有两条路径：Linux 桌面上的 Fcitx5 路径，以及 GNOME on Wayland 路径。其他桌面或 X11 会话，也许能跑通部分链路，但还不是完整支持目标。
 
 ## 名字
 
@@ -18,7 +18,7 @@ Coe 是一个 Linux 上面向 GNOME on Wayland 的语音输入法。
 
 - 后台运行，尽量减少 UI 面
 - 用纯 YAML 配置
-- 优先复用别人的能力：portal clipboard、portal paste、桌面通知
+- 优先复用别人的能力：Fcitx commit、portal clipboard、portal paste、桌面通知
 - 尽量在限制下把语音输入做好。
 
 ## 工作方式
@@ -26,18 +26,35 @@ Coe 是一个 Linux 上面向 GNOME on Wayland 的语音输入法。
 运行流程如下：
 
 1. 保持 `coe serve` 后台运行，默认使用了 user level systemd 。
-2. 用 `coe trigger toggle` 触发听写：目前由 GNOME 自定义快捷键调用，理论上不同的 DE 或者系统也可以依次绑定这个命令到热键
+2. 用热键触发听写。
+   在 `runtime.mode: fcitx` 下，Fcitx5 模块会通过 D-Bus 调 Coe，并把最终文本直接 `CommitString` 到当前输入上下文。
+   在 `runtime.mode: desktop` 下，GNOME 通常会通过 custom shortcut fallback 来执行 `coe trigger toggle`。
 3. 用 `pw-record` 录制麦克风输入。
 4. 拦截接近静音或明显损坏的录音，不发送。
 5. 把音频发送到 ASR。支持 OpenAI, SenseVoice, 或者本地 Whisper.cpp。
 6. 可选流程：把 ASR 转写文本发送给 LLM 文本模型做矫正。
-7. 通过剪贴板路径写回修正后的文本。
+7. 要么通过 Fcitx 直接上屏，要么通过剪贴板路径写回修正后的文本。
 8. 在运行环境允许时，把文本自动粘贴回当前焦点的 App。
 
 备注：
 
 - LLM 校正：默认支持所有 OpenAI 兼容 Chat Completion API，也可配置为 OpenAI Responses API
 - 输出：优先使用 Gnome portal clipboard 和 portal paste，不可用时，使用 `wl-copy` 与 `ydotool` 作为 fallback
+
+## 桌面集成路径
+
+当前有两条集成路径：
+
+- `runtime.mode: fcitx`
+  - 极薄的 Fcitx5 module
+  - 热键在 Fcitx 里处理
+  - 最终文本通过 `CommitString` 直接上屏
+  - 录音和处理中会在 Fcitx panel 里显示一个很小的状态提示
+- `runtime.mode: desktop`
+  - GNOME-first 的桌面路径
+  - `GlobalShortcuts` 不可用时走 GNOME custom shortcut fallback
+  - portal clipboard / paste
+  - 通过 GNOME Shell extension 做 terminal-aware paste
 
 ## GNOME 专属的部分：
 
@@ -55,23 +72,26 @@ curl -fsSL -o /tmp/install.sh https://raw.githubusercontent.com/quailyquaily/coe
 bash /tmp/install.sh
 ```
 
-它会下载与你机器架构匹配的 GitHub Release tarball，然后安装：
+它会下载与你机器架构匹配的 GitHub Release tarball。如果系统里已经装了 `fcitx5`，它会优先走 Fcitx5 路径；否则会自动 fallback 到 GNOME 路径。你也可以用 `--fcitx` 强制走 Fcitx，或者用 `--gnome` 强制走 GNOME。
+
+然后安装：
 
 - `~/.local/bin/coe`
 - `~/.config/systemd/user/coe.service`
 - `~/.config/coe/env`
-- `~/.local/share/gnome-shell/extensions/coe-focus-helper@mistermorph.com`
+- 如果检测到 `fcitx5`，安装 Fcitx5 模块
+- 只有在走 GNOME 路径时，才安装 GNOME Shell 扩展
 
 安装完以后还会：
 
 - 运行一次 `coe doctor`
 - 重启 `coe.service`
 - 检查 `coe.service` 是否处于 active
-- 打印二进制、配置、env、systemd unit 和 GNOME 扩展的安装位置
+- 打印二进制、配置、env、systemd unit，以及桌面相关资源的安装位置
 
 如果你使用云端 ASR 或 LLM provider，把需要的 API key 填进 `~/.config/coe/env`，或者直接写进 `~/.config/coe/config.yaml`。
 
-安装完成后，先注销再登录一次，让 GNOME Shell 和用户级服务会话都干净地拿到新扩展。
+如果当前走的是 GNOME 路径，安装完成后先注销再登录一次，让 GNOME Shell 和用户级服务会话都干净地拿到新扩展。
 
 然后打开一个有输入焦点的 App，按下默认快捷键：`<Shift><Super>d`，说话，再按一次，稍等片刻，如果正常的话，会看到说的话变成文字出现在这个 App。如果你使用 `runtime.mode: fcitx`，Fcitx panel 还会在录音和处理中显示一条简短的 Coe 状态提示。
 
@@ -79,10 +99,14 @@ bash /tmp/install.sh
 
 运行时依赖：
 
-- Wayland
-- GNOME
+- Linux 桌面会话
 - `pw-record`
 - `wl-copy`
+
+推荐的桌面集成：
+
+- Fcitx5：当前主路径
+- GNOME on Wayland：当前桌面 fallback 路径
 
 在 Ubuntu 上，可以这样安装命令行依赖：
 

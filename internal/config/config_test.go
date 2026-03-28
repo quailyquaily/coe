@@ -62,3 +62,24 @@ func TestLoadRejectsUnsupportedRuntimeMode(t *testing.T) {
 		t.Fatal("expected unsupported runtime mode to fail")
 	}
 }
+
+func TestSetValueRuntimeMode(t *testing.T) {
+	t.Parallel()
+
+	cfg := Default()
+	if err := SetValue(&cfg, "runtime.mode", "fcitx"); err != nil {
+		t.Fatalf("SetValue() error = %v", err)
+	}
+	if cfg.Runtime.Mode != RuntimeModeFcitx {
+		t.Fatalf("runtime.mode = %q, want %q", cfg.Runtime.Mode, RuntimeModeFcitx)
+	}
+}
+
+func TestSetValueRejectsUnsupportedKey(t *testing.T) {
+	t.Parallel()
+
+	cfg := Default()
+	if err := SetValue(&cfg, "llm.model", "x"); err == nil {
+		t.Fatal("expected unsupported config key to fail")
+	}
+}

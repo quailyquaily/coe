@@ -2,15 +2,15 @@
 
 ## Goal
 
-These steps turn the repository into a repeatable GNOME Wayland alpha install instead of a manually started daemon.
+These steps turn the repository into a repeatable Linux desktop install instead of a manually started daemon.
 
 The current install target is:
 
 - one user-scoped binary in `~/.local/bin/coe`
 - one `systemd --user` service
 - one env file for secrets
-- one GNOME Shell extension for focus-aware paste
-- one GNOME custom shortcut that Coe ensures at startup when `GlobalShortcuts` is unavailable
+- one Fcitx5 module when `fcitx5` is installed
+- one GNOME Shell extension only when the install path falls back to GNOME
 
 ## Quick install
 
@@ -20,12 +20,12 @@ From the repository root:
 ./scripts/install.sh
 ```
 
-This downloads the matching GitHub Release tarball for your machine and does five things:
+This downloads the matching GitHub Release tarball for your machine and:
 
 1. downloads the release archive for your Linux architecture
 2. installs the binary to `~/.local/bin/coe`
 3. installs `packaging/systemd/coe.service` into `~/.config/systemd/user/`
-4. installs the GNOME focus helper extension into `~/.local/share/gnome-shell/extensions/`
+4. prefers the Fcitx5 path when `fcitx5` is installed; otherwise falls back to the GNOME desktop path
 5. enables and starts the user service
 
 After that it also:
@@ -33,12 +33,12 @@ After that it also:
 - runs `coe doctor`
 - restarts `coe.service`
 - verifies that `coe.service` is active
-- prints where the binary, config, env file, systemd unit, and GNOME extension were installed
+- prints where the binary, config, env file, systemd unit, and desktop-specific assets were installed
 
 You can pin a version explicitly:
 
 ```bash
-./scripts/install.sh v0.0.4
+./scripts/install.sh v0.0.5
 ```
 
 ## Credentials
@@ -84,6 +84,22 @@ Runtime logging:
 - set `runtime.log_level: debug` in `~/.config/coe/config.yaml` to print per-stage timings and output fallback details
 - or override it for one run with `coe serve --log-level debug`
 
+## Runtime mode
+
+The installer now chooses the desktop path like this:
+
+- if `fcitx5` is installed, install the Fcitx5 module and set `runtime.mode: fcitx`
+- if you pass `--fcitx`, force the Fcitx5 path
+- if you pass `--gnome`, force the GNOME desktop path and set `runtime.mode: desktop`
+- if `fcitx5` is not installed, fall back to the GNOME path automatically
+
+You can change the mode later with:
+
+```bash
+coe config set runtime.mode fcitx
+coe config set runtime.mode desktop
+```
+
 ## GNOME shortcut
 
 On GNOME systems that do not expose `GlobalShortcuts`, Coe now tries to ensure a GNOME custom shortcut at startup. It uses:
@@ -100,12 +116,7 @@ The install script also copies the Coe GNOME Shell extension to:
 
 - `~/.local/share/gnome-shell/extensions/coe-focus-helper@mistermorph.com`
 
-If `gnome-extensions` is available, the script will try to enable it. New configs enable focus-aware paste by default. If you already had a config file before this change, make sure it contains:
-
-```yaml
-output:
-  use_gnome_focus_helper: true
-```
+If `gnome-extensions` is available, the script will try to enable it. New configs enable focus-aware paste by default.
 
 After installation, log out and log back in once. That gives GNOME Shell and the `systemd --user` session a clean chance to pick up the new extension and user service environment.
 

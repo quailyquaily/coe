@@ -1,11 +1,11 @@
 # Coe Fcitx5 Module
 
-This directory contains the first thin Fcitx5 module skeleton for Coe.
+This directory contains the thin Fcitx5 module for Coe.
 
 Current scope:
 
 - registers as a Fcitx5 module
-- watches key events in `PostInputMethod`
+- watches key events in `PreInputMethod`
 - reads the trigger key from Coe over session D-Bus
 - falls back to `Shift+Super+D` if Coe is unavailable during module init
 - calls `com.mistermorph.Coe.Dictation1.Toggle()` over session D-Bus
@@ -16,8 +16,7 @@ Current scope:
 
 It does not do these things yet:
 
-- clipboard fallback
-- polished runtime installation / reload flow
+- clipboard fallback when no input context exists at commit time
 
 ## Build
 
@@ -27,31 +26,22 @@ It does not do these things yet:
 
 ## Install
 
-For distribution-packaged Fcitx5, the reliable path is the system addon directory.
-
-### System install
+For release installs, use:
 
 ```bash
-sudo INSTALL_SCOPE=system ./scripts/install-fcitx-module.sh --system
+./scripts/install.sh
 ```
 
-This should place files under:
+If `fcitx5` is installed, that script prefers the Fcitx path automatically and
+installs the module into the system addon directory. Use `--fcitx` to force
+that path, or `--gnome` if you want the GNOME desktop path instead.
 
-- `/usr/lib/x86_64-linux-gnu/fcitx5/libcoefcitx.so`
-- `/usr/share/fcitx5/addon/coe.conf`
-
-### User-local install
+For local development, build with:
 
 ```bash
-./scripts/install-fcitx-module.sh
+./scripts/build-fcitx-module.sh --system
+sudo cmake --install /tmp/coe-fcitx5-build
 ```
-
-This places files under:
-
-- `~/.local/lib/x86_64-linux-gnu/fcitx5/libcoefcitx.so`
-- `~/.local/share/fcitx5/addon/coe.conf`
-
-This path is convenient for iteration, but it may not be picked up by every distribution build of Fcitx5.
 
 ## Hotkey
 

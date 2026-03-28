@@ -68,27 +68,55 @@ func runDoctor(ctx context.Context) error {
 }
 
 func runConfig(_ context.Context, args []string) error {
-	if len(args) == 0 || args[0] != "init" {
-		return errors.New("usage: coe config init")
+	if len(args) == 0 {
+		return errors.New("usage: coe config <init|set>")
 	}
 
-	path, err := config.ResolvePath()
-	if err != nil {
-		return err
-	}
+	switch args[0] {
+	case "init":
+		path, err := config.ResolvePath()
+		if err != nil {
+			return err
+		}
 
-	written, err := config.WriteDefault(path, false)
-	if err != nil {
-		return err
-	}
+		written, err := config.WriteDefault(path, false)
+		if err != nil {
+			return err
+		}
 
-	if written {
-		fmt.Printf("wrote default config to %s\n", path)
+		if written {
+			fmt.Printf("wrote default config to %s\n", path)
+			return nil
+		}
+
+		fmt.Printf("config already exists at %s\n", path)
 		return nil
-	}
+	case "set":
+		if len(args) != 3 {
+			return errors.New("usage: coe config set <key> <value>")
+		}
 
-	fmt.Printf("config already exists at %s\n", path)
-	return nil
+		path, err := config.ResolvePath()
+		if err != nil {
+			return err
+		}
+
+		cfg, err := config.LoadOrDefault(path)
+		if err != nil {
+			return err
+		}
+		if err := config.SetValue(&cfg, args[1], args[2]); err != nil {
+			return err
+		}
+		if err := config.Save(path, cfg); err != nil {
+			return err
+		}
+
+		fmt.Printf("updated %s: %s=%s\n", path, args[1], args[2])
+		return nil
+	default:
+		return errors.New("usage: coe config <init|set>")
+	}
 }
 
 func runServe(parent context.Context, args []string) error {
@@ -197,11 +225,12 @@ func isSupportedLogLevel(value string) bool {
 }
 
 func printUsage() {
-	fmt.Println("coe - Coe dictation assistant for GNOME on Wayland")
+	fmt.Println("coe - Coe dictation assistant for Linux desktops")
 	fmt.Println()
 	fmt.Println("usage:")
 	fmt.Println("  coe doctor")
 	fmt.Println("  coe config init")
+	fmt.Println("  coe config set <key> <value>")
 	fmt.Println("  coe serve [--log-level <debug|info|warn|error>]")
 	fmt.Println("  coe trigger <toggle|start|stop|status>")
 	fmt.Println("  coe version")

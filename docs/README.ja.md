@@ -2,11 +2,11 @@
 
 [English](../README.md) | [简体中文](./README.zh-CN.md)
 
-Coe は Linux 上で GNOME on Wayland 向けに動く音声入力ツールです。
+Coe は Linux デスクトップ向けの音声入力ツールです。
 
 これは [`missuo/koe`](https://github.com/missuo/koe) への Linux 向けオマージュです。目標は変わりません。ホットキーを押し、話し、LLM に文字起こしを整えさせ、そのテキストを今使っているアプリに戻します。
 
-> 現時点で唯一しっかり磨かれている対象は GNOME on Wayland です。他の Linux デスクトップや X11 セッションでも一部は動くかもしれません。試してみるのは歓迎です。
+> 現時点で実際に磨かれているのは二つの経路です。Linux デスクトップ上の Fcitx5 経路と、GNOME on Wayland 経路です。ほかのデスクトップや X11 セッションでも一部は動くかもしれませんが、第一級のサポート対象ではありません。
 
 ## 名前
 
@@ -18,7 +18,7 @@ Coe は Linux 上で GNOME on Wayland 向けに動く音声入力ツールです
 
 - バックグラウンドで動かし、UI 面をできるだけ小さくする
 - 設定はプレーンな YAML
-- portal clipboard、portal paste、デスクトップ通知のような既存機能を優先的に使う
+- Fcitx commit、portal clipboard、portal paste、デスクトップ通知のような既存機能を優先的に使う
 - 制約の中でも、できるだけちゃんと音声入力を成立させる
 
 ## 仕組み
@@ -26,18 +26,35 @@ Coe は Linux 上で GNOME on Wayland 向けに動く音声入力ツールです
 実行フローは次の通りです。
 
 1. 通常は user-level `systemd` 経由で、`coe serve` をバックグラウンドで動かし続けます。
-2. `coe trigger toggle` でディクテーションを開始します。現在は GNOME のカスタムショートカットから呼ばれます。他の DE でも理屈の上では同じコマンドをホットキーに割り当てられます。
+2. ホットキーでディクテーションを開始します。
+   `runtime.mode: fcitx` では、Fcitx5 モジュールが D-Bus 経由で Coe を呼び、最終テキストを現在の input context に `CommitString` します。
+   `runtime.mode: desktop` では、GNOME が custom shortcut fallback 経由で `coe trigger toggle` を呼ぶのが通常です。
 3. `pw-record` でマイク入力を録音します。
 4. ほぼ無音または明らかに壊れた録音は送らずに止めます。
 5. 音声を ASR に送ります。OpenAI、SenseVoice、ローカル `whisper.cpp` に対応します。
 6. 必要なら、転写結果を OpenAI 互換のテキストモデルへ送り、整形します。
-7. 整形したテキストをクリップボード経由で書き戻します。
+7. 整形したテキストを Fcitx 経由でそのまま入力するか、クリップボード経由で書き戻します。
 8. 実行環境が許す場合、フォーカス中のアプリへそのまま貼り付けます。
 
 補足:
 
 - LLM 整形: デフォルトでは OpenAI 互換 Chat Completions API を使い、必要なら OpenAI Responses API にも切り替え可能です
 - 出力: まず GNOME portal clipboard と portal paste を使い、無理なら `wl-copy` と `ydotool` に落とします
+
+## デスクトップ統合の経路
+
+現時点では二つの経路があります。
+
+- `runtime.mode: fcitx`
+  - 薄い Fcitx5 モジュール
+  - ホットキーは Fcitx 内で処理
+  - 最終テキストは `CommitString` でそのまま入力
+  - 録音中と処理中だけ Fcitx パネルに小さな状態表示
+- `runtime.mode: desktop`
+  - GNOME-first のデスクトップ経路
+  - `GlobalShortcuts` がない場合は GNOME custom shortcut fallback
+  - portal clipboard / paste
+  - terminal-aware paste のための GNOME Shell extension
 
 ## GNOME 専用の部分
 
@@ -65,23 +82,26 @@ curl -fsSL -o /tmp/install.sh https://raw.githubusercontent.com/quailyquaily/coe
 bash /tmp/install.sh
 ```
 
-これは、マシンのアーキテクチャに合った GitHub Release tarball をダウンロードしてから、次を入れます。
+これは、マシンのアーキテクチャに合った GitHub Release tarball をダウンロードします。`fcitx5` が入っていれば Fcitx5 パスを優先し、なければ GNOME パスに自動でフォールバックします。`--fcitx` で Fcitx を強制でき、`--gnome` で GNOME を強制できます。
+
+その後、次を入れます。
 
 - `~/.local/bin/coe`
 - `~/.config/systemd/user/coe.service`
 - `~/.config/coe/env`
-- `~/.local/share/gnome-shell/extensions/coe-focus-helper@mistermorph.com`
+- `fcitx5` があれば Fcitx5 モジュール
+- GNOME パスを使う場合だけ GNOME Shell 拡張
 
 その後さらに:
 
 - `coe doctor` を実行
 - `coe.service` を再起動
 - `coe.service` が active か確認
-- バイナリ、設定、env、systemd unit、GNOME 拡張のインストール先を表示
+- バイナリ、設定、env、systemd unit、デスクトップ固有アセットのインストール先を表示
 
 クラウド ASR や LLM provider を使う場合は、必要な API キーを `~/.config/coe/env` に書くか、`~/.config/coe/config.yaml` に直接書いてください。
 
-インストール後は一度ログアウトして再ログインしてください。GNOME Shell とユーザーサービスセッションの両方が新しい拡張をきれいに読み直せます。
+GNOME パスを使う場合は、インストール後に一度ログアウトして再ログインしてください。GNOME Shell とユーザーサービスセッションの両方が新しい拡張をきれいに読み直せます。
 
 そのあと入力欄のあるアプリを開き、デフォルトショートカット `<Shift><Super>d` を押して話し、もう一度押してください。うまくいけば、そのアプリに話した内容がテキストとして入ります。`runtime.mode: fcitx` では、Fcitx パネルにも Coe の状態が短く表示されます。
 
@@ -89,10 +109,14 @@ bash /tmp/install.sh
 
 実行時に必要なもの:
 
-- Wayland セッション
-- GNOME デスクトップ
+- Linux デスクトップセッション
 - `pw-record`
 - `wl-copy`
+
+推奨されるデスクトップ統合:
+
+- Fcitx5: 現在の主経路
+- GNOME on Wayland: 現在のデスクトップ fallback 経路
 
 任意:
 
