@@ -6,8 +6,6 @@ Coe is a voice input tool for Linux desktops.
 
 It is a Linux-focused tribute to [`missuo/koe`](https://github.com/missuo/koe). The goal has not changed: press a hotkey, speak, let an LLM clean up the transcript, and put the text back into the active app.
 
-> Today, two paths are real: Fcitx5 on Linux desktop sessions, and GNOME on Wayland. Other desktops or X11 sessions may still run parts of the pipeline, but they are not polished targets.
-
 ## The Name
 
 `coe` is close to `koe` on purpose. This project nods to Koe, but it targets Linux and Wayland. The old kanji `聲` means voice. That is the job.
@@ -18,7 +16,7 @@ The first author uses Linux, but people do not love building desktop software fo
 
 - Background process, minimal UI surface
 - Plain YAML config
-- Reuse platform capabilities first: Fcitx commit, portal clipboard, portal paste, desktop notifications
+- Reuse other people's capabilities first: fcitx, portal clipboard, and so on
 - Make voice input work as well as possible inside those limits
 
 ## How It Works
@@ -28,18 +26,17 @@ The runtime flow is:
 1. Keep `coe serve` running in the background, usually through a user-level `systemd` service.
 2. Trigger dictation.
    In `runtime.mode: fcitx`, the Fcitx5 module calls Coe over D-Bus and commits the final text back through the current input context.
-   In `runtime.mode: desktop`, GNOME usually calls `coe trigger toggle` through a custom shortcut fallback.
+   In `runtime.mode: desktop`, GNOME calls `coe trigger toggle` through a custom keyboard shortcut.
 3. Record microphone input with `pw-record`.
 4. Reject near-silent or obviously corrupt captures instead of sending them out.
 5. Send the audio to ASR. Coe supports OpenAI, SenseVoice, or local `whisper.cpp`.
 6. Optionally send the transcript to an OpenAI-compatible text model for cleanup.
-7. Either commit the corrected text through Fcitx, or write it through the clipboard path.
-8. Paste it back into the focused app when the runtime allows it.
+7. Deliver the final text on screen: either commit it through Fcitx, or paste it back into the focused app.
 
 Notes:
 
 - LLM cleanup: any OpenAI-compatible Chat Completions API by default, or the OpenAI Responses API when configured
-- Output: prefer GNOME portal clipboard and portal paste; fall back to `wl-copy` and `ydotool` when needed
+- Output delivery: in `desktop` mode, prefer GNOME portal clipboard; fall back to `wl-copy` and `ydotool` when needed
 
 ## Desktop Integration
 
@@ -80,7 +77,7 @@ curl -fsSL -o /tmp/install.sh https://raw.githubusercontent.com/quailyquaily/coe
 bash /tmp/install.sh
 ```
 
-It downloads the matching GitHub Release tarball for your Linux architecture. If `fcitx5` is installed, it prefers the Fcitx5 path automatically. Otherwise it falls back to the GNOME desktop path. You can force Fcitx with `--fcitx` or GNOME with `--gnome`.
+It downloads the matching GitHub Release tarball for your Linux architecture. If `fcitx5` is installed, it prefers `fcitx` mode automatically. Otherwise it falls back to `desktop` mode. You can force `fcitx` with `--fcitx`, or force `desktop` with `--gnome`.
 
 It then installs:
 
@@ -88,7 +85,7 @@ It then installs:
 - `~/.config/systemd/user/coe.service`
 - `~/.config/coe/env`
 - the Fcitx5 module when `fcitx5` is available
-- the GNOME focus helper extension only when the GNOME path is selected
+- the GNOME Shell extension only when the `desktop` path is selected
 
 After installation it also:
 
@@ -97,24 +94,27 @@ After installation it also:
 - checks whether `coe.service` is active
 - prints where the binary, config, env file, systemd unit, and desktop-specific assets were installed
 
-If you use cloud ASR or LLM providers, put the required API key into `~/.config/coe/env` or write it directly into `~/.config/coe/config.yaml`.
+If you use a cloud ASR or LLM provider, put the required API key into `~/.config/coe/env`, or write it directly into `~/.config/coe/config.yaml`.
 
-On the GNOME path, log out and log back in once so GNOME Shell and the user service session both pick up the new extension cleanly.
+If you use `fcitx` mode, the Fcitx panel will also show a short Coe status hint while listening and processing.
 
-Then open any app with an input focus, press the default shortcut `<Shift><Super>d`, speak, then press it again. If all is well, your speech should come back as text in that app. In `runtime.mode: fcitx`, the Fcitx panel will show a small Coe status hint while it is listening or processing.
+If the current path is `desktop`, log out and log back in once so GNOME Shell and the user service session both pick up the new extension cleanly.
+
+Then open any app with an input focus, press the default shortcut `<Shift><Super>d`, speak, then press it again. If all is well, your speech should come back as text in that app.
 
 ### Install Dependencies
 
-Runtime requirements:
+### Install Dependencies
 
-- Linux desktop session
+**`fcitx5` mode**
+
+- `fcitx5`
+- `pw-record`
+
+**`desktop` mode**
+
 - `pw-record`
 - `wl-copy`
-
-Recommended desktop integrations:
-
-- Fcitx5 for the primary install path
-- GNOME on Wayland for the desktop fallback path
 
 Optional:
 
@@ -131,14 +131,6 @@ sudo apt update
 sudo apt install -y pipewire-bin wl-clipboard
 sudo apt install -y ydotool
 ```
-
-## Hotkey to Start and Stop Dictation
-
-- name: `coe-trigger`
-- default shortcut: `<Shift><Super>d`
-- in `runtime.mode: desktop`, Coe tries to ensure a matching GNOME custom shortcut at startup
-- in `runtime.mode: fcitx`, the Fcitx5 module reads the same `hotkey.preferred_accelerator` over D-Bus
-- the module converts the GNOME-style value like `<Shift><Super>d` to Fcitx key syntax internally
 
 ## Configuration
 
@@ -171,6 +163,10 @@ cp config.example.yaml ~/.config/coe/config.yaml
 ```
 
 Current defaults:
+
+### Hotkey
+
+- default trigger key: `<Shift><Super>d`
 
 ### ASR
 
@@ -232,7 +228,7 @@ Notes:
 - provider: `openai`
 - endpoint type: `chat`
 - endpoint: `https://api.openai.com/v1`
-- model: `gpt-4o-mini`
+- model: `gpt-5.4-nano`
 - direct key field: `llm.api_key`
 - environment field: `OPENAI_API_KEY`
 
@@ -262,7 +258,7 @@ If you want to use the OpenAI Responses API instead, set `llm.endpoint_type` to 
 
 - `log_level: info`
 - set `log_level: debug` to print per-stage timings and output fallback details
-- set `runtime.mode: fcitx` when you want the Fcitx5 module to drive dictation instead of the GNOME fallback shortcut
+- set `runtime.mode: fcitx` if you want the Fcitx5 module to take over the trigger path instead of the GNOME fallback
 - or override it for one run: `coe serve --log-level debug`
 
 For GNOME focus-aware paste, see:
@@ -276,8 +272,7 @@ New configs enable focus-aware paste by default. Older configs can still overrid
 
 Working:
 
-- [x] Fcitx5 module trigger and `CommitString` path
-- [x] Fcitx panel status while listening or processing
+- [x] compatibility with other desktop environments through the Fcitx5 module
 - [x] GNOME Wayland fallback trigger through an auto-managed GNOME custom shortcut that runs `coe trigger toggle`
 - [x] microphone capture through `pw-record`
 - [x] batch transcription through OpenAI Audio Transcriptions
@@ -291,8 +286,6 @@ Working:
 
 Missing:
 
-- [ ] `GlobalShortcuts` portal support
-- [ ] a KDE or Hyprland validation pass
 - [ ] a stronger answer for the upstream microphone / PipeWire saturation issue
 
 ## Other
@@ -311,16 +304,14 @@ System notifications:
 
 ## Commands
 
-- `go run ./cmd/coe doctor`
-- `go run ./cmd/coe config init`
-- `go run ./cmd/coe config set runtime.mode fcitx`
-- `go run ./cmd/coe config set runtime.mode desktop`
-- `go run ./cmd/coe serve`
-- `go run ./cmd/coe trigger toggle`
-- `go run ./cmd/coe trigger start`
-- `go run ./cmd/coe trigger stop`
-- `go run ./cmd/coe trigger status`
-- `go run ./cmd/coe version`
+- `coe doctor`
+- `coe config init`
+- `coe serve`
+- `coe trigger toggle`
+- `coe trigger start`
+- `coe trigger stop`
+- `coe trigger status`
+- `coe version`
 
 ## Docs
 
