@@ -81,6 +81,18 @@ bash /tmp/install.sh
 
 これは、マシンのアーキテクチャに合った GitHub Release tarball をダウンロードします。`fcitx5` が入っていれば `fcitx` モードを優先し、なければ `desktop` モードに自動でフォールバックします。`--fcitx` で `fcitx` を強制でき、`--gnome` で `desktop` を強制できます。
 
+ローカル開発では、GitHub Release から取得せずに `--bundle` でローカルの build 結果をそのままインストールすることもできます。`--bundle` は次のどちらも受け付けます。
+
+- `./scripts/build-release-bundle.sh` が生成したローカル tarball
+- 展開済み bundle ディレクトリ。例えば `dist/release/bundle-amd64`
+
+例:
+
+```bash
+./scripts/build-release-bundle.sh dev
+./scripts/install.sh --bundle ./dist/release/coe_dev_linux_amd64.tar.gz
+```
+
 その後、次を入れます。
 
 - `~/.local/bin/coe`
@@ -251,7 +263,7 @@ OpenAI Responses API を使いたい場合は、`llm.endpoint_type` を `respons
 ### Notifications
 
 - `enable_system: true`
-- `show_text_preview: true`
+- `show_text_preview: false`
 - `notify_on_recording_start: false`
 
 ### Runtime

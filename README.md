@@ -79,6 +79,18 @@ bash /tmp/install.sh
 
 It downloads the matching GitHub Release tarball for your Linux architecture. If `fcitx5` is installed, it prefers `fcitx` mode automatically. Otherwise it falls back to `desktop` mode. You can force `fcitx` with `--fcitx`, or force `desktop` with `--gnome`.
 
+For local development, the installer can also use a local release bundle instead of downloading from GitHub Releases. Pass `--bundle` with either:
+
+- a local tarball built by `./scripts/build-release-bundle.sh`
+- an extracted bundle directory such as `dist/release/bundle-amd64`
+
+Example:
+
+```bash
+./scripts/build-release-bundle.sh dev
+./scripts/install.sh --bundle ./dist/release/coe_dev_linux_amd64.tar.gz
+```
+
 It then installs:
 
 - `~/.local/bin/coe`
@@ -251,7 +263,7 @@ If you want to use the OpenAI Responses API instead, set `llm.endpoint_type` to 
 ### Notifications
 
 - `enable_system: true`
-- `show_text_preview: true`
+- `show_text_preview: false`
 - `notify_on_recording_start: false`
 
 ### Runtime

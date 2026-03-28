@@ -12,7 +12,6 @@ import (
 
 	"coe/internal/focus"
 	"coe/internal/platform/portal"
-	"coe/internal/state"
 )
 
 type PortalSession interface {
@@ -44,7 +43,7 @@ type Coordinator struct {
 	PersistPortalAccess   bool
 	FocusProvider         focus.Provider
 	PortalFactory         PortalFactory
-	PortalStateStore      *state.Store
+	PortalStateStore      *PortalStateStore
 
 	portalMu sync.Mutex
 	portal   PortalSession
@@ -383,7 +382,7 @@ func (c *Coordinator) saveRestoreToken(token string) {
 		return
 	}
 
-	_ = c.PortalStateStore.Save(state.PortalAccess{
+	_ = c.PortalStateStore.Save(PortalAccess{
 		RemoteDesktopRestoreToken: token,
 	})
 }

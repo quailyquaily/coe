@@ -34,7 +34,6 @@ type RuntimeConfig struct {
 
 type HotkeyConfig struct {
 	Name                 string `yaml:"name"`
-	Description          string `yaml:"description"`
 	PreferredAccelerator string `yaml:"preferred_accelerator"`
 }
 
@@ -70,14 +69,13 @@ type LLMConfig struct {
 }
 
 type OutputConfig struct {
-	PreferredClipboardMode string `yaml:"preferred_clipboard_mode"`
-	EnableAutoPaste        bool   `yaml:"enable_auto_paste"`
-	PasteShortcut          string `yaml:"paste_shortcut"`
-	TerminalPasteShortcut  string `yaml:"terminal_paste_shortcut"`
-	UseGNOMEFocusHelper    bool   `yaml:"use_gnome_focus_helper"`
-	PersistPortalAccess    bool   `yaml:"persist_portal_access"`
-	ClipboardBinary        string `yaml:"clipboard_binary"`
-	PasteBinary            string `yaml:"paste_binary"`
+	EnableAutoPaste       bool   `yaml:"enable_auto_paste"`
+	PasteShortcut         string `yaml:"paste_shortcut"`
+	TerminalPasteShortcut string `yaml:"terminal_paste_shortcut"`
+	UseGNOMEFocusHelper   bool   `yaml:"use_gnome_focus_helper"`
+	PersistPortalAccess   bool   `yaml:"persist_portal_access"`
+	ClipboardBinary       string `yaml:"clipboard_binary"`
+	PasteBinary           string `yaml:"paste_binary"`
 }
 
 type NotificationsConfig struct {
@@ -95,7 +93,6 @@ func Default() Config {
 		},
 		Hotkey: HotkeyConfig{
 			Name:                 "coe-trigger",
-			Description:          "Press and hold to start dictation.",
 			PreferredAccelerator: "<Shift><Super>d",
 		},
 		Audio: AudioConfig{
@@ -126,18 +123,17 @@ func Default() Config {
 			Prompt:       "",
 		},
 		Output: OutputConfig{
-			PreferredClipboardMode: "portal",
-			EnableAutoPaste:        true,
-			PasteShortcut:          "ctrl+v",
-			TerminalPasteShortcut:  "ctrl+shift+v",
-			UseGNOMEFocusHelper:    true,
-			PersistPortalAccess:    true,
-			ClipboardBinary:        "wl-copy",
-			PasteBinary:            "",
+			EnableAutoPaste:       true,
+			PasteShortcut:         "ctrl+v",
+			TerminalPasteShortcut: "ctrl+shift+v",
+			UseGNOMEFocusHelper:   true,
+			PersistPortalAccess:   true,
+			ClipboardBinary:       "wl-copy",
+			PasteBinary:           "",
 		},
 		Notifications: NotificationsConfig{
 			EnableSystem:           true,
-			ShowTextPreview:        true,
+			ShowTextPreview:        false,
 			NotifyOnRecordingStart: false,
 		},
 	}

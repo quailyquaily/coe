@@ -1,15 +1,15 @@
-package state
+package output
 
 import (
 	"path/filepath"
 	"testing"
 )
 
-func TestStoreLoadSave(t *testing.T) {
+func TestPortalStateStoreLoadSave(t *testing.T) {
 	t.Parallel()
 
 	path := filepath.Join(t.TempDir(), "state.json")
-	store := NewStore(path)
+	store := NewPortalStateStore(path)
 
 	loaded, err := store.Load()
 	if err != nil {

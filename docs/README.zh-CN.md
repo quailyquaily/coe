@@ -71,6 +71,18 @@ bash /tmp/install.sh
 
 它会下载与你机器架构匹配的 GitHub Release tarball。如果系统里已经装了 `fcitx5`，它会优先走 `fcitx` 模式；否则会自动 fallback 到 `desktop` 模式。你也可以用 `--fcitx` 强制走 `fcitx`，或者用 `--gnome` 强制走 `desktop`。
 
+如果你在本地开发，也可以用 `--bundle` 直接安装本地构建产物，而不是从 GitHub Release 下载。`--bundle` 支持：
+
+- `./scripts/build-release-bundle.sh` 产出的本地 tarball
+- 已经解压好的 bundle 目录，比如 `dist/release/bundle-amd64`
+
+示例：
+
+```bash
+./scripts/build-release-bundle.sh dev
+./scripts/install.sh --bundle ./dist/release/coe_dev_linux_amd64.tar.gz
+```
+
 然后安装：
 
 - `~/.local/bin/coe`
@@ -243,7 +255,7 @@ asr:
 ### Notifications
 
 - `enable_system: true`
-- `show_text_preview: true`
+- `show_text_preview: false`
 - `notify_on_recording_start: false`
 
 ### Runtime

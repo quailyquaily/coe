@@ -36,6 +36,9 @@ func TestWriteDefaultAndLoad(t *testing.T) {
 	if !cfg.Notifications.EnableSystem {
 		t.Fatal("expected system notifications to be enabled by default")
 	}
+	if cfg.Notifications.ShowTextPreview {
+		t.Fatal("expected notification text preview to be disabled by default")
+	}
 	if cfg.Runtime.LogLevel != "info" {
 		t.Fatalf("unexpected log level %q", cfg.Runtime.LogLevel)
 	}

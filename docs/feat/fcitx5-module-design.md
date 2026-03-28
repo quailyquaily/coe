@@ -103,7 +103,7 @@ v1 范围明确如下：
 - `internal/llm`
 - `internal/pipeline`
 - `internal/config`
-- `internal/state`
+- `internal/output/portal_state.go`
 
 新的 Fcitx 集成不应该重写这些逻辑。
 

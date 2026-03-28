@@ -37,7 +37,7 @@
 - `internal/llm`
 - `internal/pipeline`
 - `internal/config`
-- `internal/state`
+- `internal/output/portal_state.go`
 
 Fcitx 集成应该只新增：
 

@@ -18,16 +18,20 @@ OLD_GNOME_FOCUS_HELPER_DST="${GNOME_EXTENSIONS_DIR}/${OLD_GNOME_FOCUS_HELPER_UUI
 FCITX_LOG_PATH="/tmp/coe-fcitx-$(id -u).log"
 
 INSTALL_MODE_OVERRIDE=""
+LOCAL_BUNDLE_PATH=""
+BUNDLE_ROOT=""
 POSITIONAL_ARGS=()
 
 print_usage() {
   cat <<'EOF'
-usage: ./scripts/install.sh [--fcitx|--gnome] [version]
+usage: ./scripts/install.sh [--fcitx|--gnome] [--bundle <path>] [version]
 
 examples:
   ./scripts/install.sh
   ./scripts/install.sh --gnome
   ./scripts/install.sh v0.0.5
+  ./scripts/install.sh --bundle ./dist/release/coe_0.0.5_linux_amd64.tar.gz
+  ./scripts/install.sh --bundle ./dist/release/bundle-amd64 --fcitx
 EOF
 }
 
@@ -81,6 +85,26 @@ normalize_version() {
   echo "v${value}"
 }
 
+resolve_local_path() {
+  local path="$1"
+  if [[ -d "${path}" ]]; then
+    (
+      cd "${path}"
+      pwd -P
+    )
+    return
+  fi
+
+  local dir
+  local base
+  dir="$(dirname "${path}")"
+  base="$(basename "${path}")"
+  (
+    cd "${dir}"
+    printf '%s/%s\n' "$(pwd -P)" "${base}"
+  )
+}
+
 resolve_latest_version() {
   fetch_stdout "https://api.github.com/repos/${REPO_SLUG}/releases/latest" | \
     sed -n 's/^[[:space:]]*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1
@@ -113,6 +137,79 @@ detect_install_mode() {
   fi
 
   echo "gnome"
+}
+
+prepare_local_bundle_root() {
+  local tmp_dir="$1"
+  local source_path
+  local local_extract_dir
+
+  source_path="$(resolve_local_path "${LOCAL_BUNDLE_PATH}")"
+  if [[ ! -e "${source_path}" ]]; then
+    echo "local bundle path does not exist: ${source_path}" >&2
+    exit 1
+  fi
+
+  case "${source_path}" in
+    *.tar.gz|*.tgz)
+      local_extract_dir="${tmp_dir}/local-bundle"
+      mkdir -p "${local_extract_dir}"
+      echo "extracting local bundle ${source_path}"
+      tar -xzf "${source_path}" -C "${local_extract_dir}"
+      BUNDLE_ROOT="${local_extract_dir}"
+      return
+      ;;
+  esac
+
+  if [[ -d "${source_path}" ]]; then
+    echo "using local bundle directory ${source_path}"
+    BUNDLE_ROOT="${source_path}"
+    return
+  fi
+
+  echo "unsupported local bundle path: ${source_path}" >&2
+  echo "Use either an extracted release bundle directory or a .tar.gz archive from build-release-bundle.sh." >&2
+  exit 1
+}
+
+prepare_remote_bundle_root() {
+  local tmp_dir="$1"
+  if [[ -n "${LOCAL_BUNDLE_PATH}" ]]; then
+    prepare_local_bundle_root "${tmp_dir}"
+    return
+  fi
+
+  local version_input
+  local version
+  local asset_version
+  local arch
+  local archive_name
+  local archive_url
+  local archive_path
+
+  version_input="${POSITIONAL_ARGS[0]:-${COE_VERSION:-${DEFAULT_VERSION}}}"
+  version="$(normalize_version "${version_input}")"
+  if [[ "${version}" == "latest" ]]; then
+    version="$(resolve_latest_version)"
+  fi
+  if [[ -z "${version}" ]]; then
+    echo "failed to resolve release version" >&2
+    exit 1
+  fi
+  VERSION="${version}"
+  asset_version="${VERSION#v}"
+  arch="$(detect_arch)"
+
+  archive_name="${PROJECT_NAME}_${asset_version}_linux_${arch}.tar.gz"
+  archive_url="https://github.com/${REPO_SLUG}/releases/download/${VERSION}/${archive_name}"
+  archive_path="${tmp_dir}/${archive_name}"
+
+  echo "downloading ${archive_url}"
+  download_file "${archive_url}" "${archive_path}"
+
+  echo "extracting ${archive_name}"
+  tar -xzf "${archive_path}" -C "${tmp_dir}"
+  BUNDLE_ROOT="${tmp_dir}"
 }
 
 run_as_root_install() {
@@ -212,6 +309,18 @@ while (($# > 0)); do
       INSTALL_MODE_OVERRIDE="fcitx"
       shift
       ;;
+    --bundle)
+      if [[ $# -lt 2 ]]; then
+        echo "--bundle requires a path" >&2
+        exit 1
+      fi
+      LOCAL_BUNDLE_PATH="$2"
+      shift 2
+      ;;
+    --bundle=*)
+      LOCAL_BUNDLE_PATH="${1#--bundle=}"
+      shift
+      ;;
     -h|--help)
       print_usage
       exit 0
@@ -228,21 +337,13 @@ if [[ ${#POSITIONAL_ARGS[@]} -gt 1 ]]; then
   exit 1
 fi
 
-VERSION_INPUT="${POSITIONAL_ARGS[0]:-${COE_VERSION:-${DEFAULT_VERSION}}}"
-VERSION="$(normalize_version "${VERSION_INPUT}")"
-if [[ "${VERSION}" == "latest" ]]; then
-  VERSION="$(resolve_latest_version)"
-fi
-if [[ -z "${VERSION}" ]]; then
-  echo "failed to resolve release version" >&2
+if [[ -n "${LOCAL_BUNDLE_PATH}" && ${#POSITIONAL_ARGS[@]} -gt 0 ]]; then
+  echo "version argument cannot be used with --bundle" >&2
   exit 1
 fi
-ASSET_VERSION="${VERSION#v}"
-ARCH="$(detect_arch)"
-INSTALL_MODE="$(detect_install_mode)"
 
-ARCHIVE_NAME="${PROJECT_NAME}_${ASSET_VERSION}_linux_${ARCH}.tar.gz"
-ARCHIVE_URL="https://github.com/${REPO_SLUG}/releases/download/${VERSION}/${ARCHIVE_NAME}"
+VERSION="local-build"
+INSTALL_MODE="$(detect_install_mode)"
 
 require_cmd tar
 require_cmd install
@@ -251,14 +352,7 @@ require_cmd systemctl
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
-ARCHIVE_PATH="${TMP_DIR}/${ARCHIVE_NAME}"
-echo "downloading ${ARCHIVE_URL}"
-download_file "${ARCHIVE_URL}" "${ARCHIVE_PATH}"
-
-echo "extracting ${ARCHIVE_NAME}"
-tar -xzf "${ARCHIVE_PATH}" -C "${TMP_DIR}"
-
-BUNDLE_ROOT="${TMP_DIR}"
+prepare_remote_bundle_root "${TMP_DIR}"
 BIN_SRC="${BUNDLE_ROOT}/coe"
 UNIT_SRC="${BUNDLE_ROOT}/packaging/systemd/coe.service"
 GNOME_FOCUS_HELPER_SRC="${BUNDLE_ROOT}/packaging/gnome-shell-extension/${GNOME_FOCUS_HELPER_UUID}"

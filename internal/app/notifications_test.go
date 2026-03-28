@@ -14,6 +14,7 @@ func TestNotificationForProcessingWithPreviewAndPaste(t *testing.T) {
 	instance := &App{
 		Config: config.Default(),
 	}
+	instance.Config.Notifications.ShowTextPreview = true
 
 	msg := instance.notificationForProcessing(pipeline.Result{
 		Transcript: "你好呀",
@@ -41,6 +42,7 @@ func TestNotificationForProcessingWithoutTranscript(t *testing.T) {
 	instance := &App{
 		Config: config.Default(),
 	}
+	instance.Config.Notifications.ShowTextPreview = true
 
 	msg := instance.notificationForProcessing(pipeline.Result{
 		TranscriptWarning: "ASR returned empty transcript; skipped correction and output",
@@ -60,6 +62,7 @@ func TestNotificationForProcessingWithFcitxSource(t *testing.T) {
 	instance := &App{
 		Config: config.Default(),
 	}
+	instance.Config.Notifications.ShowTextPreview = true
 
 	msg := instance.notificationForProcessing(pipeline.Result{
 		Transcript: "你好呀",
