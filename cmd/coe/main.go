@@ -484,7 +484,7 @@ func printDoctorChecks(w io.Writer, checks []doctorCheck) {
 	for i, check := range checks {
 		status := "OK"
 		if !check.OK {
-			status = "NOT OK"
+			status = "FAIL"
 			if check.Problem != "" {
 				problems = append(problems, check.Problem)
 			} else {

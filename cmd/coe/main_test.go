@@ -75,7 +75,7 @@ func TestPrintDoctorChecksUsesEnglishSummaryAndStatuses(t *testing.T) {
 		"Config file",
 		"Fcitx module init",
 		"OK",
-		"NOT OK",
+		"FAIL",
 		"Summary: issues found.",
 		"- module init marker is missing",
 		"\n      path=/tmp/coe/config.yaml",
