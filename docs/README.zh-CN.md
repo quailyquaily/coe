@@ -6,40 +6,37 @@ Coe 是一个 Linux 桌面上的语音输入工具。
 
 它是对 [`missuo/koe`](https://github.com/missuo/koe) 的 Linux 向致敬。目标没有变：按下热键，说话，让 LLM 整理转写结果，再把文本放回当前应用。
 
-> 目前真正打磨过的有两条路径：Linux 桌面上的 Fcitx5 路径，以及 GNOME on Wayland 路径。其他桌面或 X11 会话，也许能跑通部分链路，但还不是完整支持目标。
-
 ## 名字
 
 `coe` 故意和 `koe` 很接近（发音也一样）。日语汉字古字 `聲` 的意思就是声音，是这个工具要做的事。
 
 ## 为什么是 Coe？
 
-因为第一作者用的是 Linux，但是现在大家不太喜欢给 Linux 开发桌面软件。所以，第一作者希望 Coe 可以：
+第一作者用的是 Linux，但现在大家不太喜欢给 Linux 开发桌面软件。所以，第一作者希望 Coe 可以：
 
 - 后台运行，尽量减少 UI 面
 - 用纯 YAML 配置
-- 优先复用别人的能力：Fcitx commit、portal clipboard、portal paste、桌面通知
+- 优先复用别人的能力：fcitx、portal clipboard, etc
 - 尽量在限制下把语音输入做好。
 
 ## 工作方式
 
 运行流程如下：
 
-1. 保持 `coe serve` 后台运行，默认使用了 user level systemd 。
+1. 保持 `coe serve` 后台运行，默认使用 user level systemd 。
 2. 用热键触发听写。
    在 `runtime.mode: fcitx` 下，Fcitx5 模块会通过 D-Bus 调 Coe，并把最终文本直接 `CommitString` 到当前输入上下文。
-   在 `runtime.mode: desktop` 下，GNOME 通常会通过 custom shortcut fallback 来执行 `coe trigger toggle`。
+   在 `runtime.mode: desktop` 下，GNOME 会通过 custom keyboard shortcut 来执行 `coe trigger toggle`。
 3. 用 `pw-record` 录制麦克风输入。
 4. 拦截接近静音或明显损坏的录音，不发送。
 5. 把音频发送到 ASR。支持 OpenAI, SenseVoice, 或者本地 Whisper.cpp。
 6. 可选流程：把 ASR 转写文本发送给 LLM 文本模型做矫正。
-7. 要么通过 Fcitx 直接上屏，要么通过剪贴板路径写回修正后的文本。
-8. 在运行环境允许时，把文本自动粘贴回当前焦点的 App。
+7. 输出上屏：要么通过 Fcitx 直接上屏，要么把文本自动粘贴回当前焦点的 App。
 
 备注：
 
 - LLM 校正：默认支持所有 OpenAI 兼容 Chat Completion API，也可配置为 OpenAI Responses API
-- 输出：优先使用 Gnome portal clipboard 和 portal paste，不可用时，使用 `wl-copy` 与 `ydotool` 作为 fallback
+- 输出上屏：desktop 模式下，优先使用 Gnome portal clipboard；不可用时，使用 `wl-copy` 与 `ydotool` 作为 fallback
 
 ## 桌面集成路径
 
@@ -72,7 +69,7 @@ curl -fsSL -o /tmp/install.sh https://raw.githubusercontent.com/quailyquaily/coe
 bash /tmp/install.sh
 ```
 
-它会下载与你机器架构匹配的 GitHub Release tarball。如果系统里已经装了 `fcitx5`，它会优先走 Fcitx5 路径；否则会自动 fallback 到 GNOME 路径。你也可以用 `--fcitx` 强制走 Fcitx，或者用 `--gnome` 强制走 GNOME。
+它会下载与你机器架构匹配的 GitHub Release tarball。如果系统里已经装了 `fcitx5`，它会优先走 `fcitx` 模式；否则会自动 fallback 到 `desktop` 模式。你也可以用 `--fcitx` 强制走 `fcitx`，或者用 `--gnome` 强制走 `desktop`。
 
 然后安装：
 
@@ -80,7 +77,7 @@ bash /tmp/install.sh
 - `~/.config/systemd/user/coe.service`
 - `~/.config/coe/env`
 - 如果检测到 `fcitx5`，安装 Fcitx5 模块
-- 只有在走 GNOME 路径时，才安装 GNOME Shell 扩展
+- 只有在走 `desktop` 模式时，才安装 GNOME Shell 扩展
 
 安装完以后还会：
 
@@ -91,22 +88,26 @@ bash /tmp/install.sh
 
 如果你使用云端 ASR 或 LLM provider，把需要的 API key 填进 `~/.config/coe/env`，或者直接写进 `~/.config/coe/config.yaml`。
 
-如果当前走的是 GNOME 路径，安装完成后先注销再登录一次，让 GNOME Shell 和用户级服务会话都干净地拿到新扩展。
+如果你使用 `fcitx` 模式，Fcitx panel 还会在录音和处理中显示一条简短的 Coe 状态提示。
 
-然后打开一个有输入焦点的 App，按下默认快捷键：`<Shift><Super>d`，说话，再按一次，稍等片刻，如果正常的话，会看到说的话变成文字出现在这个 App。如果你使用 `runtime.mode: fcitx`，Fcitx panel 还会在录音和处理中显示一条简短的 Coe 状态提示。
+如果当前走的是 `desktop` 模式，安装完成后先注销再登录一次，让 GNOME Shell 和用户级服务会话都干净地拿到新扩展。
+
+然后打开一个有输入焦点的 App，按下默认快捷键：`<Shift><Super>d`，说话，再按一次，稍等片刻，如果正常的话，会看到说的话变成文字出现在这个 App。
 
 ### 安装依赖
 
+
+**`fcitx5` 模式**
+
+- fcitx5
+- `pw-record`
+
+**`desktop` 模式**
+
 运行时依赖：
 
-- Linux 桌面会话
 - `pw-record`
 - `wl-copy`
-
-推荐的桌面集成：
-
-- Fcitx5：当前主路径
-- GNOME on Wayland：当前桌面 fallback 路径
 
 在 Ubuntu 上，可以这样安装命令行依赖：
 
@@ -116,9 +117,8 @@ sudo apt install -y pipewire-bin wl-clipboard
 sudo apt install -y ydotool
 ```
 
-可选依赖：
+**可选依赖**
 
-- 剪贴板：`ydotool`，安装使用命令 `sudo apt install -y ydotool`
 - LLM：一个 OpenAI 兼容 API 的 LLM 进行文本纠正，把需要的 API key 放在 `~/.config/coe/env` 或者 `config.yaml` 里的 `llm.api_key`
 - ASR：`whisper-cli` 和一个 Whisper 模型文件，如果你想用本地 ASR
 - ASR：一个正在运行的 SenseVoice FastAPI 服务，如果你想通过 SenseVoice 做本地网络 ASR
@@ -156,11 +156,9 @@ cp config.example.yaml ~/.config/coe/config.yaml
 
 当前默认值如下：
 
-### Fcitx5 模块热键
+### 热键
 
 - 默认触发键：`<Shift><Super>d`
-- `runtime.mode: fcitx` 时，Fcitx5 模块会通过 D-Bus 读取 `~/.config/coe/config.yaml` 里的 `hotkey.preferred_accelerator`
-- 模块内部会把 GNOME 风格的 `<Shift><Super>d` 转成 Fcitx 的按键语法
 
 ### ASR
 
@@ -222,7 +220,7 @@ asr:
 - provider：`openai`
 - endpoint type：`chat`
 - endpoint：`https://api.openai.com/v1`
-- model：`gpt-4o-mini`
+- model：`gpt-5.4-nano`
 - 直接写 key 的字段：`llm.api_key`
 - 环境变量字段：`OPENAI_API_KEY`
 
@@ -266,6 +264,7 @@ asr:
 
 已经工作的部分：
 
+- [x] 通过 fcitx 5 模块实现对其他桌面环境的兼容
 - [x] GNOME Wayland fallback trigger：通过自动管理的 GNOME 自定义快捷键执行 `coe trigger toggle`
 - [x] 通过 `pw-record` 录制麦克风
 - [x] 通过 OpenAI Audio Transcriptions 做批量转写
@@ -279,8 +278,6 @@ asr:
 
 还没有的部分：
 
-- [ ] `GlobalShortcuts` portal 支持
-- [ ] KDE 或 Hyprland 的验证轮次
 - [ ] 对上游麦克风 / PipeWire 饱和问题的更强结论
 
 ## 其他
