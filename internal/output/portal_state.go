@@ -1,4 +1,4 @@
-package state
+package output
 
 import (
 	"encoding/json"
@@ -8,19 +8,19 @@ import (
 	"sync"
 )
 
-const envStatePath = "COE_STATE_PATH"
+const envPortalStatePath = "COE_STATE_PATH"
 
 type PortalAccess struct {
 	RemoteDesktopRestoreToken string `json:"remote_desktop_restore_token"`
 }
 
-type Store struct {
+type PortalStateStore struct {
 	path string
 	mu   sync.Mutex
 }
 
-func ResolvePath() (string, error) {
-	if path := os.Getenv(envStatePath); path != "" {
+func ResolvePortalStatePath() (string, error) {
+	if path := os.Getenv(envPortalStatePath); path != "" {
 		return path, nil
 	}
 
@@ -36,11 +36,11 @@ func ResolvePath() (string, error) {
 	return filepath.Join(base, "coe", "state.json"), nil
 }
 
-func NewStore(path string) *Store {
-	return &Store{path: path}
+func NewPortalStateStore(path string) *PortalStateStore {
+	return &PortalStateStore{path: path}
 }
 
-func (s *Store) Load() (PortalAccess, error) {
+func (s *PortalStateStore) Load() (PortalAccess, error) {
 	if s == nil {
 		return PortalAccess{}, nil
 	}
@@ -63,7 +63,7 @@ func (s *Store) Load() (PortalAccess, error) {
 	return state, nil
 }
 
-func (s *Store) Save(state PortalAccess) error {
+func (s *PortalStateStore) Save(state PortalAccess) error {
 	if s == nil {
 		return nil
 	}

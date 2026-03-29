@@ -36,6 +36,9 @@ func TestWriteDefaultAndLoad(t *testing.T) {
 	if !cfg.Notifications.EnableSystem {
 		t.Fatal("expected system notifications to be enabled by default")
 	}
+	if cfg.Notifications.NotifyOnComplete {
+		t.Fatal("expected completion notifications to be disabled by default")
+	}
 	if cfg.Runtime.LogLevel != "info" {
 		t.Fatalf("unexpected log level %q", cfg.Runtime.LogLevel)
 	}
@@ -63,6 +66,31 @@ func TestLoadRejectsUnsupportedRuntimeMode(t *testing.T) {
 	}
 }
 
+func TestLoadResolvesPromptFilesRelativeToConfig(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	data := []byte("asr:\n  prompt_file: prompts/asr.tmpl\nllm:\n  prompt_file: prompts/llm.tmpl\ndictionary:\n  file: prompts/dictionary.yaml\n")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.ASR.PromptFile != filepath.Join(dir, "prompts", "asr.tmpl") {
+		t.Fatalf("ASR.PromptFile = %q", cfg.ASR.PromptFile)
+	}
+	if cfg.LLM.PromptFile != filepath.Join(dir, "prompts", "llm.tmpl") {
+		t.Fatalf("LLM.PromptFile = %q", cfg.LLM.PromptFile)
+	}
+	if cfg.Dictionary.File != filepath.Join(dir, "prompts", "dictionary.yaml") {
+		t.Fatalf("Dictionary.File = %q", cfg.Dictionary.File)
+	}
+}
+
 func TestSetValueRuntimeMode(t *testing.T) {
 	t.Parallel()
 
@@ -81,5 +109,59 @@ func TestSetValueRejectsUnsupportedKey(t *testing.T) {
 	cfg := Default()
 	if err := SetValue(&cfg, "llm.model", "x"); err == nil {
 		t.Fatal("expected unsupported config key to fail")
+	}
+}
+
+func TestLoadEnvFileLoadsMissingKeysFromEnvFile(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tempDir)
+	t.Setenv("OPENAI_API_KEY", "")
+	t.Setenv("SENSEVOICE_TOKEN", "")
+	if err := os.Unsetenv("OPENAI_API_KEY"); err != nil {
+		t.Fatalf("Unsetenv(OPENAI_API_KEY) error = %v", err)
+	}
+	if err := os.Unsetenv("SENSEVOICE_TOKEN"); err != nil {
+		t.Fatalf("Unsetenv(SENSEVOICE_TOKEN) error = %v", err)
+	}
+
+	envDir := filepath.Join(tempDir, "coe")
+	if err := os.MkdirAll(envDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	data := []byte("# comment\nOPENAI_API_KEY=file-key\nexport SENSEVOICE_TOKEN=\"quoted-token\"\n")
+	if err := os.WriteFile(filepath.Join(envDir, "env"), data, 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := LoadEnvFile(); err != nil {
+		t.Fatalf("LoadEnvFile() error = %v", err)
+	}
+	if got := os.Getenv("OPENAI_API_KEY"); got != "file-key" {
+		t.Fatalf("OPENAI_API_KEY = %q, want %q", got, "file-key")
+	}
+	if got := os.Getenv("SENSEVOICE_TOKEN"); got != "quoted-token" {
+		t.Fatalf("SENSEVOICE_TOKEN = %q, want %q", got, "quoted-token")
+	}
+}
+
+func TestLoadEnvFileDoesNotOverrideExistingEnv(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tempDir)
+	t.Setenv("OPENAI_API_KEY", "shell-key")
+
+	envDir := filepath.Join(tempDir, "coe")
+	if err := os.MkdirAll(envDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	data := []byte("OPENAI_API_KEY=file-key\n")
+	if err := os.WriteFile(filepath.Join(envDir, "env"), data, 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := LoadEnvFile(); err != nil {
+		t.Fatalf("LoadEnvFile() error = %v", err)
+	}
+	if got := os.Getenv("OPENAI_API_KEY"); got != "shell-key" {
+		t.Fatalf("OPENAI_API_KEY = %q, want %q", got, "shell-key")
 	}
 }

@@ -1,7 +1,7 @@
 {
   "uuid": "coe-focus-helper@mistermorph.com",
-  "name": "Coe Focus Helper",
-  "description": "Expose the focused window wm_class over D-Bus for Coe.",
+  "name": "Coe Shell Helper",
+  "description": "Expose the focused window wm_class and provide a GNOME panel menu for Coe.",
   "shell-version": ["45", "46", "47", "48", "49"],
   "url": "https://github.com/quailyquaily/coe"
 }

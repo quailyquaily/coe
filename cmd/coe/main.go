@@ -2,57 +2,11 @@ package main
 
 import (
 	"context"
-	"errors"
-	"flag"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
-	"os/signal"
-	"path/filepath"
-	"strings"
-	"syscall"
 
-	"coe/internal/app"
-	"coe/internal/capabilities"
 	"coe/internal/config"
-	"coe/internal/control"
-	"coe/internal/focus"
-	dbusipc "coe/internal/ipc/dbus"
-	"coe/internal/platform/gnome"
-
-	godbus "github.com/godbus/dbus/v5"
 )
-
-type doctorCheck struct {
-	Name    string
-	OK      bool
-	Detail  string
-	Problem string
-}
-
-type doctorServiceStatus struct {
-	LoadState   string
-	ActiveState string
-	SubState    string
-	Err         error
-}
-
-type doctorDictationStatus struct {
-	Reachable  bool
-	State      string
-	SessionID  string
-	Detail     string
-	TriggerKey string
-	Err        error
-}
-
-type doctorFocusHelperStatus struct {
-	Installed bool
-	Reachable bool
-	Target    string
-	Err       error
-}
 
 var (
 	version = "dev"
@@ -72,6 +26,13 @@ func run(parent context.Context, args []string) error {
 	if len(args) == 0 {
 		printUsage()
 		return nil
+	}
+
+	switch args[0] {
+	case "doctor", "serve":
+		if err := config.LoadEnvFile(); err != nil {
+			return err
+		}
 	}
 
 	switch args[0] {

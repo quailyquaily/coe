@@ -68,6 +68,7 @@ cp "${ROOT_DIR}/README.md" "${BUNDLE_ROOT}/README.md"
 cp "${ROOT_DIR}/config.example.yaml" "${BUNDLE_ROOT}/config.example.yaml"
 cp "${ROOT_DIR}/docs/install.md" "${BUNDLE_ROOT}/docs/install.md"
 cp "${ROOT_DIR}/scripts/install.sh" "${BUNDLE_ROOT}/scripts/install.sh"
+cp "${ROOT_DIR}/scripts/resolve-fcitx-layout.sh" "${BUNDLE_ROOT}/scripts/resolve-fcitx-layout.sh"
 cp "${ROOT_DIR}/packaging/systemd/coe.service" "${BUNDLE_ROOT}/packaging/systemd/coe.service"
 cp -r "${ROOT_DIR}/packaging/gnome-shell-extension/coe-focus-helper@mistermorph.com" \
   "${BUNDLE_ROOT}/packaging/gnome-shell-extension/"
@@ -76,7 +77,7 @@ BUILD_DIR="${FCITX_BUILD_DIR}" INSTALL_SCOPE=system \
   "${ROOT_DIR}/scripts/build-fcitx-module.sh" --system
 DESTDIR="${BUNDLE_ROOT}/packaging/fcitx5/runtime" cmake --install "${FCITX_BUILD_DIR}"
 
-chmod 0755 "${BUNDLE_ROOT}/scripts/install.sh"
+chmod 0755 "${BUNDLE_ROOT}/scripts/install.sh" "${BUNDLE_ROOT}/scripts/resolve-fcitx-layout.sh"
 
 tar -czf "${ARCHIVE_PATH}" -C "${BUNDLE_ROOT}" .
 

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"coe/internal/focus"
-	"coe/internal/state"
 )
 
 func TestDeliverWritesClipboard(t *testing.T) {
@@ -344,8 +343,8 @@ func TestLooksLikeTerminalTarget(t *testing.T) {
 }
 
 func TestEnsurePortalLoadsAndSavesRestoreToken(t *testing.T) {
-	store := state.NewStore(filepath.Join(t.TempDir(), "state.json"))
-	if err := store.Save(state.PortalAccess{RemoteDesktopRestoreToken: "old-token"}); err != nil {
+	store := NewPortalStateStore(filepath.Join(t.TempDir(), "state.json"))
+	if err := store.Save(PortalAccess{RemoteDesktopRestoreToken: "old-token"}); err != nil {
 		t.Fatalf("Save() error = %v", err)
 	}
 

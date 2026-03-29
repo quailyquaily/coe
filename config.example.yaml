@@ -15,8 +15,6 @@ runtime:
 hotkey:
   # Display name used when Coe ensures a GNOME custom shortcut entry.
   name: coe-trigger
-  # Human-readable description of the trigger behavior.
-  description: Press and hold to start dictation.
   # Preferred accelerator. On GNOME fallback, Coe will try to register this
   # binding as a custom shortcut that runs `coe trigger toggle`.
   preferred_accelerator: <Shift><Super>d
@@ -51,8 +49,12 @@ asr:
 
   # Language hint. Use `auto` or leave it empty to rely on auto-detection.
   language: zh
-  # Optional prompt / initial prompt passed to the ASR backend.
+  # Optional Go text/template prompt passed to the ASR backend.
+  # Available fields: .Provider, .Model, .Language
   prompt: ""
+  # Optional template file path. Relative paths are resolved from this config file.
+  # If set, this takes precedence over `prompt`.
+  prompt_file: ""
   # Optional ASR API key stored directly in this config file.
   api_key: ""
   # Environment variable that stores the ASR API key when `api_key` is empty.
@@ -85,13 +87,20 @@ llm:
   api_key: ""
   # Environment variable that stores the cleanup API key when `api_key` is empty.
   api_key_env: OPENAI_API_KEY
-  # Optional correction instructions.
+  # Optional Go text/template correction instructions.
+  # Available fields: .Provider, .Model, .EndpointType
   prompt: ""
+  # Optional template file path. Relative paths are resolved from this config file.
+  # If set, this takes precedence over `prompt`.
+  prompt_file: ""
+
+# Personal dictionary used during LLM correction and post-correction normalization.
+dictionary:
+  # Optional YAML file path. Relative paths are resolved from this config file.
+  file: ""
 
 # Clipboard and paste behavior.
 output:
-  # Preferred clipboard path. `portal` is the Wayland-native path on GNOME.
-  preferred_clipboard_mode: portal
   # Try to paste automatically after writing the final text.
   enable_auto_paste: true
   # Default paste shortcut for regular GUI text fields.
@@ -110,10 +119,10 @@ output:
 
 # Desktop notification behavior.
 notifications:
-  # Send completion / failure notifications through org.freedesktop.Notifications.
+  # Send failure notifications through org.freedesktop.Notifications.
   enable_system: true
-  # Include part of the transcript in completion notifications.
-  show_text_preview: true
+  # Notify when dictation finishes, including the corrected text. Default is false to avoid post-dictation noise.
+  notify_on_complete: false
   # Notify when recording starts. Usually too noisy, so default is false.
   notify_on_recording_start: false
 
@@ -166,7 +175,6 @@ notifications:
 #   log_level: info
 #
 # output:
-#   preferred_clipboard_mode: portal
 #   enable_auto_paste: true
 #   paste_shortcut: ctrl+v
 #   terminal_paste_shortcut: ctrl+shift+v

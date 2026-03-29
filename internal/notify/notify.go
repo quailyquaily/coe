@@ -12,6 +12,7 @@ const (
 	objectPath    = "/org/freedesktop/Notifications"
 	interfaceName = "org.freedesktop.Notifications"
 	notifyMethod  = interfaceName + ".Notify"
+	closeMethod   = interfaceName + ".CloseNotification"
 )
 
 const (
@@ -27,10 +28,11 @@ type Service interface {
 }
 
 type Message struct {
-	Title   string
-	Body    string
-	Urgency byte
-	Timeout time.Duration
+	Title     string
+	Body      string
+	Urgency   byte
+	Timeout   time.Duration
+	Transient bool
 }
 
 type Disabled struct{}
@@ -80,11 +82,10 @@ func (d *Desktop) Send(ctx context.Context, msg Message) error {
 		timeout = int32(msg.Timeout / time.Millisecond)
 	}
 
-	hints := map[string]dbus.Variant{
-		"urgency": dbus.MakeVariant(msg.Urgency),
-	}
+	hints := buildHints(msg)
 
-	return d.obj.CallWithContext(
+	var id uint32
+	call := d.obj.CallWithContext(
 		ctx,
 		notifyMethod,
 		0,
@@ -96,7 +97,47 @@ func (d *Desktop) Send(ctx context.Context, msg Message) error {
 		[]string{},
 		hints,
 		timeout,
-	).Err
+	)
+	if call.Err != nil {
+		return call.Err
+	}
+	if err := call.Store(&id); err != nil {
+		return err
+	}
+	if shouldCloseAfterTimeout(msg) && id != 0 {
+		scheduleCloseNotification(id, msg.Timeout)
+	}
+	return nil
+}
+
+func buildHints(msg Message) map[string]dbus.Variant {
+	hints := map[string]dbus.Variant{
+		"urgency": dbus.MakeVariant(msg.Urgency),
+	}
+	if msg.Transient {
+		hints["transient"] = dbus.MakeVariant(true)
+	}
+	return hints
+}
+
+func shouldCloseAfterTimeout(msg Message) bool {
+	return msg.Transient && msg.Timeout > 0 && msg.Urgency != UrgencyCritical
+}
+
+func scheduleCloseNotification(id uint32, delay time.Duration) {
+	time.AfterFunc(delay, func() {
+		conn, err := dbus.ConnectSessionBus()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		_ = conn.Object(busName, dbus.ObjectPath(objectPath)).Call(
+			closeMethod,
+			0,
+			id,
+		).Err
+	})
 }
 
 func (d *Desktop) Close() error {

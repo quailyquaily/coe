@@ -200,25 +200,107 @@ func detectFcitx(binary Binary) FcitxStatus {
 }
 
 func systemFcitxAddonPaths() []string {
-	paths := []string{"/usr/share/fcitx5/addon/coe.conf"}
+	paths := prependIfSet([]string{
+		"/usr/share/fcitx5/addon/coe.conf",
+		"/usr/local/share/fcitx5/addon/coe.conf",
+	}, fcitxAddonPathFromPkgConfig())
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		paths = append(paths, filepath.Join(home, ".local/share/fcitx5/addon/coe.conf"))
 	}
-	return paths
+	return uniqueStrings(paths)
 }
 
 func fcitxModuleSearchPatterns() []string {
-	patterns := []string{
+	patterns := prependIfSet([]string{
+		"/usr/lib64/fcitx5/libcoefcitx.so",
 		"/usr/lib/*/fcitx5/libcoefcitx.so",
 		"/usr/lib/fcitx5/libcoefcitx.so",
-	}
+		"/usr/local/lib64/fcitx5/libcoefcitx.so",
+		"/usr/local/lib/*/fcitx5/libcoefcitx.so",
+		"/usr/local/lib/fcitx5/libcoefcitx.so",
+	}, fcitxModulePathFromPkgConfig())
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		patterns = append(patterns,
+			filepath.Join(home, ".local/lib64/fcitx5/libcoefcitx.so"),
 			filepath.Join(home, ".local/lib/*/fcitx5/libcoefcitx.so"),
 			filepath.Join(home, ".local/lib/fcitx5/libcoefcitx.so"),
 		)
 	}
-	return patterns
+	return uniqueStrings(patterns)
+}
+
+func fcitxAddonPathFromPkgConfig() string {
+	prefix, _, datadir, ok := fcitxLayoutFromPkgConfig()
+	if !ok {
+		return ""
+	}
+	if datadir == "" {
+		datadir = filepath.Join(prefix, "share")
+	}
+	return filepath.Join(datadir, "fcitx5", "addon", "coe.conf")
+}
+
+func fcitxModulePathFromPkgConfig() string {
+	_, libdir, _, ok := fcitxLayoutFromPkgConfig()
+	if !ok {
+		return ""
+	}
+	return filepath.Join(libdir, "fcitx5", "libcoefcitx.so")
+}
+
+func fcitxLayoutFromPkgConfig() (prefix string, libdir string, datadir string, ok bool) {
+	if _, err := exec.LookPath("pkg-config"); err != nil {
+		return "", "", "", false
+	}
+	if err := exec.Command("pkg-config", "--exists", "Fcitx5Core").Run(); err != nil {
+		return "", "", "", false
+	}
+
+	prefix = pkgConfigVar("Fcitx5Core", "prefix")
+	libdir = pkgConfigVar("Fcitx5Core", "libdir")
+	datadir = pkgConfigVar("Fcitx5Core", "datadir")
+	if prefix == "" || libdir == "" {
+		return "", "", "", false
+	}
+	if datadir == "" {
+		datadir = filepath.Join(prefix, "share")
+	}
+	return prefix, libdir, datadir, true
+}
+
+func pkgConfigVar(pkgName string, variable string) string {
+	output, err := exec.Command("pkg-config", "--variable="+variable, pkgName).Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+
+func prependIfSet(values []string, value string) []string {
+	if value == "" {
+		return values
+	}
+	return append([]string{value}, values...)
+}
+
+func uniqueStrings(values []string) []string {
+	if len(values) < 2 {
+		return values
+	}
+
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 func firstExistingPath(patterns ...string) string {

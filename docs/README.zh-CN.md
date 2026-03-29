@@ -71,6 +71,18 @@ bash /tmp/install.sh
 
 它会下载与你机器架构匹配的 GitHub Release tarball。如果系统里已经装了 `fcitx5`，它会优先走 `fcitx` 模式；否则会自动 fallback 到 `desktop` 模式。你也可以用 `--fcitx` 强制走 `fcitx`，或者用 `--gnome` 强制走 `desktop`。
 
+如果你在本地开发，也可以用 `--bundle` 直接安装本地构建产物，而不是从 GitHub Release 下载。`--bundle` 支持：
+
+- `./scripts/build-release-bundle.sh` 产出的本地 tarball
+- 已经解压好的 bundle 目录，比如 `dist/release/bundle-amd64`
+
+示例：
+
+```bash
+./scripts/build-release-bundle.sh dev
+./scripts/install.sh --bundle ./dist/release/coe_dev_linux_amd64.tar.gz
+```
+
 然后安装：
 
 - `~/.local/bin/coe`
@@ -188,7 +200,8 @@ asr:
 
 - `binary` 默认是 `whisper-cli`
 - `model_path` 是 `whisper.cpp` 必填项
-- `prompt` 会作为初始提示词传入
+- `prompt` 会先按 Go `text/template` 渲染，再作为初始提示词传入
+- `prompt_file` 可以把模板放进单独文件里；相对路径会按 `config.yaml` 所在目录解析
 - `threads` 默认取 `GOMAXPROCS`
 - `use_gpu: false` 会加上 `--no-gpu`
 
@@ -224,7 +237,27 @@ asr:
 - 直接写 key 的字段：`llm.api_key`
 - 环境变量字段：`OPENAI_API_KEY`
 
+`llm.prompt` 也会先按 Go `text/template` 渲染，再作为校正指令使用。
+`llm.prompt_file` 也是同样的机制；如果你想把模板放到 YAML 外面，优先用这个。
+
 如果你想改走 OpenAI Responses API，可以把 `llm.endpoint_type` 设成 `responses`。
+
+### 个人词典
+
+- 配置字段：`dictionary.file`
+- 文件格式：YAML，字段是 `canonical`、`aliases`，可选 `scenes`
+- 字符串建议统一用双引号
+- `aliases` 建议用紧凑数组语法，比如 `["system control", "system c t l"]`
+- 词典会注入到 LLM correction prompt，并在 LLM 输出后再做一次确定性归一化
+- 单字符 alias 不注入 prompt，只走程序里的严格 token 边界替换
+- v1 不做热加载；修改词典后重启 `coe.service`
+
+示例：
+
+```yaml
+dictionary:
+  file: "./dictionary.yaml"
+```
 
 ### Audio
 
@@ -243,8 +276,10 @@ asr:
 ### Notifications
 
 - `enable_system: true`
-- `show_text_preview: true`
+- `notify_on_complete: false`
 - `notify_on_recording_start: false`
+
+如果开启 `notify_on_complete`，完成通知会带上纠错后的文本。
 
 ### Runtime
 

@@ -1,0 +1,17 @@
+{{/* General LLM correction prompt template.
+Available fields:
+- .Provider
+- .Model
+- .EndpointType
+*/}}
+TASK: clean ASR dictation text.
+
+RULES:
+{{template "llm-correction-common-rules" .}}
+
+EXAMPLES:
+{{template "llm-correction-common-examples" .}}
+
+{{template "llm-correction-common-dictionary" .}}
+
+RETURN: corrected text only. No explanation.

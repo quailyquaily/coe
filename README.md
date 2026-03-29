@@ -79,6 +79,18 @@ bash /tmp/install.sh
 
 It downloads the matching GitHub Release tarball for your Linux architecture. If `fcitx5` is installed, it prefers `fcitx` mode automatically. Otherwise it falls back to `desktop` mode. You can force `fcitx` with `--fcitx`, or force `desktop` with `--gnome`.
 
+For local development, the installer can also use a local release bundle instead of downloading from GitHub Releases. Pass `--bundle` with either:
+
+- a local tarball built by `./scripts/build-release-bundle.sh`
+- an extracted bundle directory such as `dist/release/bundle-amd64`
+
+Example:
+
+```bash
+./scripts/build-release-bundle.sh dev
+./scripts/install.sh --bundle ./dist/release/coe_dev_linux_amd64.tar.gz
+```
+
 It then installs:
 
 - `~/.local/bin/coe`
@@ -196,7 +208,8 @@ Notes:
 
 - `binary` defaults to `whisper-cli`
 - `model_path` is required for `whisper.cpp`
-- `prompt` is passed through as the initial prompt
+- `prompt` is rendered as a Go `text/template` before being sent as the initial prompt
+- `prompt_file` lets you keep that template in a separate file; relative paths are resolved from `config.yaml`
 - `threads` defaults to `GOMAXPROCS`
 - `use_gpu: false` adds `--no-gpu`
 
@@ -233,6 +246,25 @@ Notes:
 - environment field: `OPENAI_API_KEY`
 
 If you want to use the OpenAI Responses API instead, set `llm.endpoint_type` to `responses`.
+`llm.prompt` is also rendered as a Go `text/template` before it is used as correction instructions.
+`llm.prompt_file` works the same way and is preferred when you want the template outside YAML.
+
+### Personal Dictionary
+
+- config field: `dictionary.file`
+- format: YAML with `canonical`, `aliases`, and optional `scenes`
+- wrap strings in double quotes
+- use compact arrays for `aliases` when possible, for example `["system control", "system c t l"]`
+- dictionary entries are injected into the LLM correction prompt and applied again as deterministic post-correction normalization
+- single-character aliases are not injected into prompts; they only use strict token-boundary replacement in code
+- v1 does not hot-reload the dictionary; restart `coe.service` after editing it
+
+Example:
+
+```yaml
+dictionary:
+  file: "./dictionary.yaml"
+```
 
 ### Audio
 
@@ -251,8 +283,10 @@ If you want to use the OpenAI Responses API instead, set `llm.endpoint_type` to 
 ### Notifications
 
 - `enable_system: true`
-- `show_text_preview: true`
+- `notify_on_complete: false`
 - `notify_on_recording_start: false`
+
+If `notify_on_complete` is enabled, the completion notification includes the corrected text.
 
 ### Runtime
 

@@ -5,8 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"coe/internal/config"
+	"coe/internal/prompts"
 )
 
 func TestOpenAICorrectorCorrect(t *testing.T) {
@@ -51,6 +55,95 @@ func TestOpenAICorrectorCorrect(t *testing.T) {
 		t.Fatalf("Correct() error = %v", err)
 	}
 	if result.Text != "Hello, world." {
+		t.Fatalf("result.Text = %q", result.Text)
+	}
+}
+
+func TestOpenAICorrectorRendersPromptTemplate(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("Decode() error = %v", err)
+		}
+		if payload["instructions"] != "Fix text with gpt-4o-mini via responses" {
+			t.Fatalf("instructions = %v", payload["instructions"])
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"output_text":"ok"}`))
+	}))
+	defer server.Close()
+
+	corrector := OpenAICorrector{
+		Endpoint:     server.URL,
+		EndpointType: "responses",
+		Model:        "gpt-4o-mini",
+		APIKey:       "test-key",
+		PromptFile:   filepath.Join("testdata", "correction-prompt.tmpl"),
+		HTTPClient:   server.Client(),
+	}
+
+	result, err := corrector.Correct(context.Background(), "hello,,world")
+	if err != nil {
+		t.Fatalf("Correct() error = %v", err)
+	}
+	if result.Text != "ok" {
+		t.Fatalf("result.Text = %q", result.Text)
+	}
+}
+
+func TestOpenAICorrectorUsesResolvedPrompt(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("Decode() error = %v", err)
+		}
+		instructions, _ := payload["instructions"].(string)
+		if !strings.Contains(instructions, `- "system control" => "systemctl"`) {
+			t.Fatalf("instructions = %v", payload["instructions"])
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"output_text":"ok"}`))
+	}))
+	defer server.Close()
+
+	resolvedPrompt, err := ResolvePrompt(config.LLMConfig{
+		Provider:     "openai",
+		EndpointType: "responses",
+		Model:        "gpt-4o-mini",
+	}, prompts.TemplateLLMCorrectionGeneral, prompts.LLMTemplateData{
+		Dictionary: `- "system control" => "systemctl"`,
+	})
+	if err != nil {
+		t.Fatalf("ResolvePrompt() error = %v", err)
+	}
+
+	corrector, err := NewCorrectorWithResolvedPrompt(config.LLMConfig{
+		Provider:     "openai",
+		Endpoint:     server.URL,
+		EndpointType: "responses",
+		Model:        "gpt-4o-mini",
+		APIKey:       "test-key",
+	}, resolvedPrompt)
+	if err != nil {
+		t.Fatalf("NewCorrectorWithResolvedPrompt() error = %v", err)
+	}
+	openaiCorrector, ok := corrector.(OpenAICorrector)
+	if !ok {
+		t.Fatalf("corrector type = %T", corrector)
+	}
+	openaiCorrector.HTTPClient = server.Client()
+
+	result, err := openaiCorrector.Correct(context.Background(), "hello,,world")
+	if err != nil {
+		t.Fatalf("Correct() error = %v", err)
+	}
+	if result.Text != "ok" {
 		t.Fatalf("result.Text = %q", result.Text)
 	}
 }

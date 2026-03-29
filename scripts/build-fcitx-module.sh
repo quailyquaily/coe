@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_DIR="${ROOT_DIR}/packaging/fcitx5"
+SCRIPT_DIR="${ROOT_DIR}/scripts"
 BUILD_DIR="${BUILD_DIR:-/tmp/coe-fcitx5-build}"
 INSTALL_SCOPE="${INSTALL_SCOPE:-user}"
 EXTRA_CMAKE_ARGS=()
@@ -51,20 +52,20 @@ case "${INSTALL_SCOPE}" in
   user)
     INSTALL_PREFIX="${INSTALL_PREFIX:-${HOME}/.local}"
     FCITX_SYS_PATHS="OFF"
-    LIBRARY_PATH="${INSTALL_PREFIX}/lib/x86_64-linux-gnu/fcitx5/libcoefcitx.so"
-    ADDON_CONFIG_PATH="${INSTALL_PREFIX}/share/fcitx5/addon/coe.conf"
     ;;
   system)
     INSTALL_PREFIX="${INSTALL_PREFIX:-/usr}"
     FCITX_SYS_PATHS="ON"
-    LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/fcitx5/libcoefcitx.so"
-    ADDON_CONFIG_PATH="/usr/share/fcitx5/addon/coe.conf"
     ;;
   *)
     echo "unsupported INSTALL_SCOPE: ${INSTALL_SCOPE}" >&2
     exit 1
     ;;
 esac
+
+eval "$("${SCRIPT_DIR}/resolve-fcitx-layout.sh" --install-prefix "${INSTALL_PREFIX}")"
+LIBRARY_PATH="${FCITX_MODULE_DIR}/libcoefcitx.so"
+ADDON_CONFIG_PATH="${FCITX_ADDON_DIR}/coe.conf"
 
 cmake -S "${SOURCE_DIR}" -B "${BUILD_DIR}" \
   -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \

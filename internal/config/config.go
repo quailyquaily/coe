@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +23,7 @@ type Config struct {
 	Audio         AudioConfig         `yaml:"audio"`
 	ASR           ASRConfig           `yaml:"asr"`
 	LLM           LLMConfig           `yaml:"llm"`
+	Dictionary    DictionaryConfig    `yaml:"dictionary"`
 	Output        OutputConfig        `yaml:"output"`
 	Notifications NotificationsConfig `yaml:"notifications"`
 }
@@ -34,7 +36,6 @@ type RuntimeConfig struct {
 
 type HotkeyConfig struct {
 	Name                 string `yaml:"name"`
-	Description          string `yaml:"description"`
 	PreferredAccelerator string `yaml:"preferred_accelerator"`
 }
 
@@ -46,17 +47,18 @@ type AudioConfig struct {
 }
 
 type ASRConfig struct {
-	Provider  string `yaml:"provider"`
-	Endpoint  string `yaml:"endpoint"`
-	Model     string `yaml:"model"`
-	Language  string `yaml:"language"`
-	Prompt    string `yaml:"prompt"`
-	APIKey    string `yaml:"api_key"`
-	APIKeyEnv string `yaml:"api_key_env"`
-	Binary    string `yaml:"binary"`
-	ModelPath string `yaml:"model_path"`
-	Threads   int    `yaml:"threads"`
-	UseGPU    bool   `yaml:"use_gpu"`
+	Provider   string `yaml:"provider"`
+	Endpoint   string `yaml:"endpoint"`
+	Model      string `yaml:"model"`
+	Language   string `yaml:"language"`
+	Prompt     string `yaml:"prompt"`
+	PromptFile string `yaml:"prompt_file"`
+	APIKey     string `yaml:"api_key"`
+	APIKeyEnv  string `yaml:"api_key_env"`
+	Binary     string `yaml:"binary"`
+	ModelPath  string `yaml:"model_path"`
+	Threads    int    `yaml:"threads"`
+	UseGPU     bool   `yaml:"use_gpu"`
 }
 
 type LLMConfig struct {
@@ -67,22 +69,26 @@ type LLMConfig struct {
 	APIKey       string `yaml:"api_key"`
 	APIKeyEnv    string `yaml:"api_key_env"`
 	Prompt       string `yaml:"prompt"`
+	PromptFile   string `yaml:"prompt_file"`
+}
+
+type DictionaryConfig struct {
+	File string `yaml:"file"`
 }
 
 type OutputConfig struct {
-	PreferredClipboardMode string `yaml:"preferred_clipboard_mode"`
-	EnableAutoPaste        bool   `yaml:"enable_auto_paste"`
-	PasteShortcut          string `yaml:"paste_shortcut"`
-	TerminalPasteShortcut  string `yaml:"terminal_paste_shortcut"`
-	UseGNOMEFocusHelper    bool   `yaml:"use_gnome_focus_helper"`
-	PersistPortalAccess    bool   `yaml:"persist_portal_access"`
-	ClipboardBinary        string `yaml:"clipboard_binary"`
-	PasteBinary            string `yaml:"paste_binary"`
+	EnableAutoPaste       bool   `yaml:"enable_auto_paste"`
+	PasteShortcut         string `yaml:"paste_shortcut"`
+	TerminalPasteShortcut string `yaml:"terminal_paste_shortcut"`
+	UseGNOMEFocusHelper   bool   `yaml:"use_gnome_focus_helper"`
+	PersistPortalAccess   bool   `yaml:"persist_portal_access"`
+	ClipboardBinary       string `yaml:"clipboard_binary"`
+	PasteBinary           string `yaml:"paste_binary"`
 }
 
 type NotificationsConfig struct {
 	EnableSystem           bool `yaml:"enable_system"`
-	ShowTextPreview        bool `yaml:"show_text_preview"`
+	NotifyOnComplete       bool `yaml:"notify_on_complete"`
 	NotifyOnRecordingStart bool `yaml:"notify_on_recording_start"`
 }
 
@@ -95,7 +101,6 @@ func Default() Config {
 		},
 		Hotkey: HotkeyConfig{
 			Name:                 "coe-trigger",
-			Description:          "Press and hold to start dictation.",
 			PreferredAccelerator: "<Shift><Super>d",
 		},
 		Audio: AudioConfig{
@@ -105,17 +110,18 @@ func Default() Config {
 			Format:         "s16",
 		},
 		ASR: ASRConfig{
-			Provider:  "openai",
-			Endpoint:  "https://api.openai.com/v1/audio/transcriptions",
-			Model:     "gpt-4o-mini-transcribe",
-			Language:  "zh",
-			Prompt:    "",
-			APIKey:    "",
-			APIKeyEnv: "OPENAI_API_KEY",
-			Binary:    "whisper-cli",
-			ModelPath: "",
-			Threads:   0,
-			UseGPU:    false,
+			Provider:   "openai",
+			Endpoint:   "https://api.openai.com/v1/audio/transcriptions",
+			Model:      "gpt-4o-mini-transcribe",
+			Language:   "zh",
+			Prompt:     "",
+			PromptFile: "",
+			APIKey:     "",
+			APIKeyEnv:  "OPENAI_API_KEY",
+			Binary:     "whisper-cli",
+			ModelPath:  "",
+			Threads:    0,
+			UseGPU:     false,
 		},
 		LLM: LLMConfig{
 			Provider:     "openai",
@@ -124,20 +130,23 @@ func Default() Config {
 			Model:        "gpt-4o-mini",
 			APIKeyEnv:    "OPENAI_API_KEY",
 			Prompt:       "",
+			PromptFile:   "",
+		},
+		Dictionary: DictionaryConfig{
+			File: "",
 		},
 		Output: OutputConfig{
-			PreferredClipboardMode: "portal",
-			EnableAutoPaste:        true,
-			PasteShortcut:          "ctrl+v",
-			TerminalPasteShortcut:  "ctrl+shift+v",
-			UseGNOMEFocusHelper:    true,
-			PersistPortalAccess:    true,
-			ClipboardBinary:        "wl-copy",
-			PasteBinary:            "",
+			EnableAutoPaste:       true,
+			PasteShortcut:         "ctrl+v",
+			TerminalPasteShortcut: "ctrl+shift+v",
+			UseGNOMEFocusHelper:   true,
+			PersistPortalAccess:   true,
+			ClipboardBinary:       "wl-copy",
+			PasteBinary:           "",
 		},
 		Notifications: NotificationsConfig{
 			EnableSystem:           true,
-			ShowTextPreview:        true,
+			NotifyOnComplete:       false,
 			NotifyOnRecordingStart: false,
 		},
 	}
@@ -154,6 +163,23 @@ func ResolvePath() (string, error) {
 	}
 
 	return filepath.Join(base, "coe", "config.yaml"), nil
+}
+
+func ResolveEnvPath() (string, error) {
+	base, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(base, "coe", "env"), nil
+}
+
+func LoadEnvFile() error {
+	path, err := ResolveEnvPath()
+	if err != nil {
+		return err
+	}
+	return loadEnvFile(path)
 }
 
 func LoadOrDefault(path string) (Config, error) {
@@ -179,6 +205,9 @@ func Load(path string) (Config, error) {
 	if !IsSupportedRuntimeMode(cfg.Runtime.Mode) {
 		return Config{}, errors.New("unsupported runtime.mode: " + cfg.Runtime.Mode)
 	}
+	cfg.ASR.PromptFile = resolveConfigRelativePath(path, cfg.ASR.PromptFile)
+	cfg.LLM.PromptFile = resolveConfigRelativePath(path, cfg.LLM.PromptFile)
+	cfg.Dictionary.File = resolveConfigRelativePath(path, cfg.Dictionary.File)
 
 	return cfg, nil
 }
@@ -250,4 +279,60 @@ func SetValue(cfg *Config, key, value string) error {
 	default:
 		return errors.New("unsupported config key: " + key)
 	}
+}
+
+func loadEnvFile(path string) error {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for i, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "export ") {
+			line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+		}
+
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			return fmt.Errorf("invalid env line %d in %s", i+1, path)
+		}
+		key = strings.TrimSpace(key)
+		if key == "" {
+			return fmt.Errorf("invalid env line %d in %s: empty key", i+1, path)
+		}
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+
+		value = strings.TrimSpace(value)
+		if len(value) >= 2 {
+			if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
+				value = strings.Trim(value, "\"")
+			} else if strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") {
+				value = strings.Trim(value, "'")
+			}
+		}
+
+		if err := os.Setenv(key, value); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func resolveConfigRelativePath(configPath, value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || filepath.IsAbs(trimmed) {
+		return trimmed
+	}
+	return filepath.Join(filepath.Dir(configPath), trimmed)
 }

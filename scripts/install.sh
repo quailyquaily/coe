@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_SLUG="quailyquaily/coe"
 PROJECT_NAME="coe"
 DEFAULT_VERSION="latest"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 BIN_DIR="${HOME}/.local/bin"
 CONFIG_DIR="${HOME}/.config/coe"
@@ -16,18 +17,24 @@ OLD_GNOME_FOCUS_HELPER_UUID="coe-focus-helper@quaily.com"
 GNOME_FOCUS_HELPER_DST="${GNOME_EXTENSIONS_DIR}/${GNOME_FOCUS_HELPER_UUID}"
 OLD_GNOME_FOCUS_HELPER_DST="${GNOME_EXTENSIONS_DIR}/${OLD_GNOME_FOCUS_HELPER_UUID}"
 FCITX_LOG_PATH="/tmp/coe-fcitx-$(id -u).log"
+FCITX_MODULE_DST=""
+FCITX_ADDON_DST=""
 
 INSTALL_MODE_OVERRIDE=""
+LOCAL_BUNDLE_PATH=""
+BUNDLE_ROOT=""
 POSITIONAL_ARGS=()
 
 print_usage() {
   cat <<'EOF'
-usage: ./scripts/install.sh [--fcitx|--gnome] [version]
+usage: ./scripts/install.sh [--fcitx|--gnome] [--bundle <path>] [version]
 
 examples:
   ./scripts/install.sh
   ./scripts/install.sh --gnome
   ./scripts/install.sh v0.0.5
+  ./scripts/install.sh --bundle ./dist/release/coe_0.0.5_linux_amd64.tar.gz
+  ./scripts/install.sh --bundle ./dist/release/bundle-amd64 --fcitx
 EOF
 }
 
@@ -68,6 +75,54 @@ download_file() {
   exit 1
 }
 
+resolve_fcitx_layout_helper_path() {
+  local candidate="${SCRIPT_DIR}/resolve-fcitx-layout.sh"
+  if [[ -f "${candidate}" ]]; then
+    echo "${candidate}"
+    return 0
+  fi
+
+  if [[ -z "${TMP_DIR:-}" ]]; then
+    echo "Fcitx layout helper is missing next to install.sh and TMP_DIR is not ready" >&2
+    exit 1
+  fi
+
+  candidate="${TMP_DIR}/resolve-fcitx-layout.sh"
+  if [[ -f "${candidate}" ]]; then
+    echo "${candidate}"
+    return 0
+  fi
+
+  local helper_url
+  helper_url="$(resolve_fcitx_layout_helper_url)"
+  if [[ -z "${helper_url}" ]]; then
+    echo "Fcitx layout helper is missing and no matching remote helper can be resolved" >&2
+    exit 1
+  fi
+  download_file "${helper_url}" "${candidate}"
+  chmod 0755 "${candidate}"
+  echo "${candidate}"
+}
+
+resolve_fcitx_layout_helper_url() {
+  if [[ -n "${LOCAL_BUNDLE_PATH}" || "${VERSION:-}" == "local-build" ]]; then
+    echo ""
+    return
+  fi
+
+  local helper_ref="refs/heads/master"
+  if [[ -n "${VERSION:-}" && "${VERSION}" != "latest" ]]; then
+    helper_ref="refs/tags/${VERSION}"
+  fi
+  printf 'https://raw.githubusercontent.com/%s/%s/scripts/resolve-fcitx-layout.sh\n' "${REPO_SLUG}" "${helper_ref}"
+}
+
+load_fcitx_layout() {
+  local helper
+  helper="$(resolve_fcitx_layout_helper_path)"
+  eval "$("${helper}" "$@")"
+}
+
 normalize_version() {
   local value="$1"
   if [[ -z "$value" || "$value" == "latest" ]]; then
@@ -79,6 +134,26 @@ normalize_version() {
     return
   fi
   echo "v${value}"
+}
+
+resolve_local_path() {
+  local path="$1"
+  if [[ -d "${path}" ]]; then
+    (
+      cd "${path}"
+      pwd -P
+    )
+    return
+  fi
+
+  local dir
+  local base
+  dir="$(dirname "${path}")"
+  base="$(basename "${path}")"
+  (
+    cd "${dir}"
+    printf '%s/%s\n' "$(pwd -P)" "${base}"
+  )
 }
 
 resolve_latest_version() {
@@ -107,12 +182,95 @@ detect_install_mode() {
     return
   fi
 
-  if command -v fcitx5 >/dev/null 2>&1 && [[ -d /usr/share/fcitx5 ]]; then
+  if command -v fcitx5 >/dev/null 2>&1; then
     echo "fcitx"
     return
   fi
 
   echo "gnome"
+}
+
+has_gnome_desktop() {
+  if [[ "${INSTALL_MODE_OVERRIDE}" == "gnome" ]]; then
+    return 0
+  fi
+
+  local desktop="${XDG_CURRENT_DESKTOP:-}:${XDG_SESSION_DESKTOP:-}:${DESKTOP_SESSION:-}"
+  desktop="${desktop,,}"
+  [[ "${desktop}" == *gnome* ]]
+}
+
+prepare_local_bundle_root() {
+  local tmp_dir="$1"
+  local source_path
+  local local_extract_dir
+
+  source_path="$(resolve_local_path "${LOCAL_BUNDLE_PATH}")"
+  if [[ ! -e "${source_path}" ]]; then
+    echo "local bundle path does not exist: ${source_path}" >&2
+    exit 1
+  fi
+
+  case "${source_path}" in
+    *.tar.gz|*.tgz)
+      local_extract_dir="${tmp_dir}/local-bundle"
+      mkdir -p "${local_extract_dir}"
+      echo "extracting local bundle ${source_path}"
+      tar -xzf "${source_path}" -C "${local_extract_dir}"
+      BUNDLE_ROOT="${local_extract_dir}"
+      return
+      ;;
+  esac
+
+  if [[ -d "${source_path}" ]]; then
+    echo "using local bundle directory ${source_path}"
+    BUNDLE_ROOT="${source_path}"
+    return
+  fi
+
+  echo "unsupported local bundle path: ${source_path}" >&2
+  echo "Use either an extracted release bundle directory or a .tar.gz archive from build-release-bundle.sh." >&2
+  exit 1
+}
+
+prepare_remote_bundle_root() {
+  local tmp_dir="$1"
+  if [[ -n "${LOCAL_BUNDLE_PATH}" ]]; then
+    prepare_local_bundle_root "${tmp_dir}"
+    return
+  fi
+
+  local version_input
+  local version
+  local asset_version
+  local arch
+  local archive_name
+  local archive_url
+  local archive_path
+
+  version_input="${POSITIONAL_ARGS[0]:-${COE_VERSION:-${DEFAULT_VERSION}}}"
+  version="$(normalize_version "${version_input}")"
+  if [[ "${version}" == "latest" ]]; then
+    version="$(resolve_latest_version)"
+  fi
+  if [[ -z "${version}" ]]; then
+    echo "failed to resolve release version" >&2
+    exit 1
+  fi
+  VERSION="${version}"
+  asset_version="${VERSION#v}"
+  arch="$(detect_arch)"
+
+  archive_name="${PROJECT_NAME}_${asset_version}_linux_${arch}.tar.gz"
+  archive_url="https://github.com/${REPO_SLUG}/releases/download/${VERSION}/${archive_name}"
+  archive_path="${tmp_dir}/${archive_name}"
+
+  echo "downloading ${archive_url}"
+  download_file "${archive_url}" "${archive_path}"
+
+  echo "extracting ${archive_name}"
+  tar -xzf "${archive_path}" -C "${tmp_dir}"
+  BUNDLE_ROOT="${tmp_dir}"
 }
 
 run_as_root_install() {
@@ -153,26 +311,32 @@ install_gnome_assets() {
 install_fcitx_assets() {
   local runtime_root="$1"
 
-  if [[ ! -d "${runtime_root}/usr" ]]; then
-    echo "release archive missing staged Fcitx5 runtime assets: ${runtime_root}/usr" >&2
+  if [[ ! -d "${runtime_root}" ]]; then
+    echo "release archive missing staged Fcitx5 runtime assets: ${runtime_root}" >&2
     exit 1
   fi
 
   local module_src
-  module_src="$(find "${runtime_root}/usr/lib" -path '*/fcitx5/libcoefcitx.so' | head -n 1)"
-  local addon_src="${runtime_root}/usr/share/fcitx5/addon/coe.conf"
+  module_src="$(find "${runtime_root}" -path '*/fcitx5/libcoefcitx.so' | head -n 1)"
+  local addon_src
+  addon_src="$(find "${runtime_root}" -path '*/share/fcitx5/addon/coe.conf' | head -n 1)"
 
   if [[ -z "${module_src}" || ! -f "${addon_src}" ]]; then
     echo "release archive is missing the Fcitx5 module payload" >&2
     exit 1
   fi
 
-  local module_dst="/${module_src#${runtime_root}/}"
-  local addon_dst="/${addon_src#${runtime_root}/}"
+  load_fcitx_layout
+
+  local module_dst="${FCITX_MODULE_DIR}/libcoefcitx.so"
+  local addon_dst="${FCITX_ADDON_DIR}/coe.conf"
 
   echo "installing Fcitx5 module -> ${module_dst}"
   run_as_root_install -D -m 0755 "${module_src}" "${module_dst}"
   run_as_root_install -D -m 0644 "${addon_src}" "${addon_dst}"
+
+  FCITX_MODULE_DST="${module_dst}"
+  FCITX_ADDON_DST="${addon_dst}"
 
   rm -f "${FCITX_LOG_PATH}"
 }
@@ -212,6 +376,18 @@ while (($# > 0)); do
       INSTALL_MODE_OVERRIDE="fcitx"
       shift
       ;;
+    --bundle)
+      if [[ $# -lt 2 ]]; then
+        echo "--bundle requires a path" >&2
+        exit 1
+      fi
+      LOCAL_BUNDLE_PATH="$2"
+      shift 2
+      ;;
+    --bundle=*)
+      LOCAL_BUNDLE_PATH="${1#--bundle=}"
+      shift
+      ;;
     -h|--help)
       print_usage
       exit 0
@@ -228,21 +404,17 @@ if [[ ${#POSITIONAL_ARGS[@]} -gt 1 ]]; then
   exit 1
 fi
 
-VERSION_INPUT="${POSITIONAL_ARGS[0]:-${COE_VERSION:-${DEFAULT_VERSION}}}"
-VERSION="$(normalize_version "${VERSION_INPUT}")"
-if [[ "${VERSION}" == "latest" ]]; then
-  VERSION="$(resolve_latest_version)"
-fi
-if [[ -z "${VERSION}" ]]; then
-  echo "failed to resolve release version" >&2
+if [[ -n "${LOCAL_BUNDLE_PATH}" && ${#POSITIONAL_ARGS[@]} -gt 0 ]]; then
+  echo "version argument cannot be used with --bundle" >&2
   exit 1
 fi
-ASSET_VERSION="${VERSION#v}"
-ARCH="$(detect_arch)"
-INSTALL_MODE="$(detect_install_mode)"
 
-ARCHIVE_NAME="${PROJECT_NAME}_${ASSET_VERSION}_linux_${ARCH}.tar.gz"
-ARCHIVE_URL="https://github.com/${REPO_SLUG}/releases/download/${VERSION}/${ARCHIVE_NAME}"
+VERSION="local-build"
+INSTALL_MODE="$(detect_install_mode)"
+INSTALL_GNOME_EXTENSION=0
+if has_gnome_desktop; then
+  INSTALL_GNOME_EXTENSION=1
+fi
 
 require_cmd tar
 require_cmd install
@@ -251,14 +423,7 @@ require_cmd systemctl
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
-ARCHIVE_PATH="${TMP_DIR}/${ARCHIVE_NAME}"
-echo "downloading ${ARCHIVE_URL}"
-download_file "${ARCHIVE_URL}" "${ARCHIVE_PATH}"
-
-echo "extracting ${ARCHIVE_NAME}"
-tar -xzf "${ARCHIVE_PATH}" -C "${TMP_DIR}"
-
-BUNDLE_ROOT="${TMP_DIR}"
+prepare_remote_bundle_root "${TMP_DIR}"
 BIN_SRC="${BUNDLE_ROOT}/coe"
 UNIT_SRC="${BUNDLE_ROOT}/packaging/systemd/coe.service"
 GNOME_FOCUS_HELPER_SRC="${BUNDLE_ROOT}/packaging/gnome-shell-extension/${GNOME_FOCUS_HELPER_UUID}"
@@ -291,11 +456,14 @@ fi
 
 install -m 0644 "${UNIT_SRC}" "${UNIT_PATH}"
 
+if [[ "${INSTALL_GNOME_EXTENSION}" == "1" ]]; then
+  install_gnome_assets "${GNOME_FOCUS_HELPER_SRC}"
+fi
+
 if [[ "${INSTALL_MODE}" == "fcitx" ]]; then
   install_fcitx_assets "${FCITX_RUNTIME_ROOT}"
   "${BIN_DIR}/coe" config set runtime.mode fcitx >/dev/null
 else
-  install_gnome_assets "${GNOME_FOCUS_HELPER_SRC}"
   "${BIN_DIR}/coe" config set runtime.mode desktop >/dev/null
 fi
 
@@ -317,11 +485,12 @@ echo "- binary: ${BIN_DIR}/coe"
 echo "- config: ${CONFIG_DIR}/config.yaml"
 echo "- env: ${ENV_PATH}"
 echo "- systemd unit: ${UNIT_PATH}"
-if [[ "${INSTALL_MODE}" == "fcitx" ]]; then
-  echo "- fcitx addon config: /usr/share/fcitx5/addon/coe.conf"
-  echo "- fcitx module: installed into /usr/lib/*/fcitx5/libcoefcitx.so"
-else
+if [[ "${INSTALL_GNOME_EXTENSION}" == "1" ]]; then
   echo "- GNOME extension: ${GNOME_FOCUS_HELPER_DST}"
+fi
+if [[ "${INSTALL_MODE}" == "fcitx" ]]; then
+  echo "- fcitx addon config: ${FCITX_ADDON_DST}"
+  echo "- fcitx module: ${FCITX_MODULE_DST}"
 fi
 
 echo
@@ -353,6 +522,9 @@ echo "1. If you use cloud ASR or LLM providers, put the required API key(s) in $
 if [[ "${INSTALL_MODE}" == "fcitx" ]]; then
   echo "2. Open any app with an active Fcitx input context and press the configured hotkey"
   echo "3. If the module still does not load, check ${FCITX_LOG_PATH}"
+  if [[ "${INSTALL_GNOME_EXTENSION}" == "1" ]]; then
+    echo "4. Log out and log back in once so GNOME Shell picks up the Coe extension cleanly"
+  fi
 else
   echo "2. Log out and log back in once so GNOME Shell and your user session both pick up the new extension and service cleanly"
   echo "3. Check logs: journalctl --user -u coe.service -f"

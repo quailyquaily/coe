@@ -81,6 +81,18 @@ bash /tmp/install.sh
 
 これは、マシンのアーキテクチャに合った GitHub Release tarball をダウンロードします。`fcitx5` が入っていれば `fcitx` モードを優先し、なければ `desktop` モードに自動でフォールバックします。`--fcitx` で `fcitx` を強制でき、`--gnome` で `desktop` を強制できます。
 
+ローカル開発では、GitHub Release から取得せずに `--bundle` でローカルの build 結果をそのままインストールすることもできます。`--bundle` は次のどちらも受け付けます。
+
+- `./scripts/build-release-bundle.sh` が生成したローカル tarball
+- 展開済み bundle ディレクトリ。例えば `dist/release/bundle-amd64`
+
+例:
+
+```bash
+./scripts/build-release-bundle.sh dev
+./scripts/install.sh --bundle ./dist/release/coe_dev_linux_amd64.tar.gz
+```
+
 その後、次を入れます。
 
 - `~/.local/bin/coe`
@@ -196,7 +208,8 @@ asr:
 
 - `binary` のデフォルトは `whisper-cli`
 - `model_path` は `whisper.cpp` で必須
-- `prompt` は初期プロンプトとして渡されます
+- `prompt` は Go の `text/template` としてレンダリングされたうえで初期プロンプトとして渡されます
+- `prompt_file` を使うとテンプレートを別ファイルに置けます。相対パスは `config.yaml` から解決されます
 - `threads` のデフォルトは `GOMAXPROCS`
 - `use_gpu: false` は `--no-gpu` を付けます
 
@@ -232,7 +245,27 @@ asr:
 - 直接キーを書くフィールド: `llm.api_key`
 - 環境変数フィールド: `OPENAI_API_KEY`
 
+`llm.prompt` も Go の `text/template` としてレンダリングされたうえで補正指示に使われます。
+`llm.prompt_file` も同じ仕組みで、テンプレートを YAML の外に置きたい場合はこちらを優先してください。
+
 OpenAI Responses API を使いたい場合は、`llm.endpoint_type` を `responses` にしてください。
+
+### Personal Dictionary
+
+- 設定フィールド: `dictionary.file`
+- 形式: `canonical`、`aliases`、任意の `scenes` を持つ YAML
+- 文字列はダブルクォートで囲むのを推奨
+- `aliases` は `["system control", "system c t l"]` のようなコンパクト配列で書けます
+- 辞書は LLM correction prompt に注入され、さらに LLM 出力後に決定的な正規化をもう一度行います
+- 1 文字 alias は prompt には入れず、コード側の厳格な token 境界置換だけで扱います
+- v1 ではホットリロードしません。編集後は `coe.service` を再起動してください
+
+例:
+
+```yaml
+dictionary:
+  file: "./dictionary.yaml"
+```
 
 ### Audio
 
@@ -251,8 +284,10 @@ OpenAI Responses API を使いたい場合は、`llm.endpoint_type` を `respons
 ### Notifications
 
 - `enable_system: true`
-- `show_text_preview: true`
+- `notify_on_complete: false`
 - `notify_on_recording_start: false`
+
+`notify_on_complete` を有効にすると、完了通知に補正後のテキストが含まれます。
 
 ### Runtime
 

@@ -41,6 +41,30 @@ You can pin a version explicitly:
 ./scripts/install.sh v0.0.5
 ```
 
+## Local development install
+
+For local testing, you can point the installer at a local release bundle instead of downloading from GitHub Releases.
+
+Build a bundle first:
+
+```bash
+./scripts/build-release-bundle.sh dev
+```
+
+Then install from either the local tarball:
+
+```bash
+./scripts/install.sh --bundle ./dist/release/coe_dev_linux_amd64.tar.gz
+```
+
+Or the extracted bundle directory:
+
+```bash
+./scripts/install.sh --bundle ./dist/release/bundle-amd64
+```
+
+`--bundle` reuses the same install flow as the remote release path. It still installs the binary, user service, env file, and desktop-specific assets; it just skips the download step.
+
 ## Credentials
 
 If you use cloud ASR or LLM providers, put the required API key in:

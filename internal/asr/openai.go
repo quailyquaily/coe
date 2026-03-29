@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"coe/internal/audio"
+	"coe/internal/prompts"
 )
 
 const (
@@ -27,6 +28,7 @@ type OpenAIClient struct {
 	APIKeyEnv  string
 	Language   string
 	Prompt     string
+	PromptFile string
 	HTTPClient *http.Client
 }
 
@@ -47,7 +49,16 @@ func (c OpenAIClient) Transcribe(ctx context.Context, capture audio.Result) (Res
 		return Result{}, fmt.Errorf("audio payload is %d bytes, over OpenAI 25 MB upload limit", len(wav))
 	}
 
-	first, err := c.transcribeOnce(ctx, wav, c.Language)
+	prompt, err := prompts.ResolveASR(c.Prompt, c.PromptFile, prompts.ASRTemplateData{
+		Provider: "openai",
+		Model:    defaultOpenAIModel(c.Model),
+		Language: strings.TrimSpace(c.Language),
+	})
+	if err != nil {
+		return Result{}, err
+	}
+
+	first, err := c.transcribeOnce(ctx, wav, c.Language, prompt)
 	if err != nil {
 		return Result{}, err
 	}
@@ -58,7 +69,7 @@ func (c OpenAIClient) Transcribe(ctx context.Context, capture audio.Result) (Res
 		}, nil
 	}
 	if c.Language != "" {
-		retry, err := c.transcribeOnce(ctx, wav, "")
+		retry, err := c.transcribeOnce(ctx, wav, "", prompt)
 		if err != nil {
 			return Result{}, err
 		}
@@ -76,7 +87,7 @@ func (c OpenAIClient) Transcribe(ctx context.Context, capture audio.Result) (Res
 	}, nil
 }
 
-func (c OpenAIClient) transcribeOnce(ctx context.Context, wav []byte, language string) (openAITranscriptionPayload, error) {
+func (c OpenAIClient) transcribeOnce(ctx context.Context, wav []byte, language, prompt string) (openAITranscriptionPayload, error) {
 	apiKey, _, err := resolveAPIKey(c.APIKey, c.APIKeyEnv)
 	if err != nil {
 		return openAITranscriptionPayload{}, err
@@ -93,10 +104,7 @@ func (c OpenAIClient) transcribeOnce(ctx context.Context, wav []byte, language s
 		return openAITranscriptionPayload{}, err
 	}
 
-	model := c.Model
-	if model == "" {
-		model = "gpt-4o-mini-transcribe"
-	}
+	model := defaultOpenAIModel(c.Model)
 	if err := writer.WriteField("model", model); err != nil {
 		return openAITranscriptionPayload{}, err
 	}
@@ -108,8 +116,8 @@ func (c OpenAIClient) transcribeOnce(ctx context.Context, wav []byte, language s
 			return openAITranscriptionPayload{}, err
 		}
 	}
-	if c.Prompt != "" {
-		if err := writer.WriteField("prompt", c.Prompt); err != nil {
+	if prompt != "" {
+		if err := writer.WriteField("prompt", prompt); err != nil {
 			return openAITranscriptionPayload{}, err
 		}
 	}
@@ -218,4 +226,11 @@ func truncateForWarning(value string, limit int) string {
 		return value
 	}
 	return value[:limit] + "..."
+}
+
+func defaultOpenAIModel(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "gpt-4o-mini-transcribe"
+	}
+	return strings.TrimSpace(value)
 }
