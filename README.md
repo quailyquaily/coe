@@ -258,6 +258,7 @@ If you want to use the OpenAI Responses API instead, set `llm.endpoint_type` to 
 - dictionary entries are injected into the LLM correction prompt and applied again as deterministic post-correction normalization
 - single-character aliases are not injected into prompts; they only use strict token-boundary replacement in code
 - v1 does not hot-reload the dictionary; restart `coe.service` after editing it
+- `coe config init` creates or backfills `./dictionary.yaml` next to `config.yaml` with two starter entries
 
 Example:
 

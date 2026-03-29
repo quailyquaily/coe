@@ -3,13 +3,15 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 func TestWriteDefaultAndLoad(t *testing.T) {
 	t.Parallel()
 
-	path := filepath.Join(t.TempDir(), "config.yaml")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
 
 	written, err := WriteDefault(path, false)
 	if err != nil {
@@ -50,6 +52,98 @@ func TestWriteDefaultAndLoad(t *testing.T) {
 	}
 	if !cfg.Output.UseGNOMEFocusHelper {
 		t.Fatal("expected GNOME focus helper to be enabled by default")
+	}
+	if cfg.Dictionary.File != filepath.Join(dir, "dictionary.yaml") {
+		t.Fatalf("unexpected dictionary path %q", cfg.Dictionary.File)
+	}
+
+	dictionaryData, err := os.ReadFile(filepath.Join(dir, "dictionary.yaml"))
+	if err != nil {
+		t.Fatalf("ReadFile(dictionary) error = %v", err)
+	}
+	dictionaryText := string(dictionaryData)
+	for _, fragment := range []string{
+		"canonical: \"Coe\"",
+		"aliases: [\"扣诶\"]",
+		"canonical: \"systemctl\"",
+		"aliases: [\"system control\", \"system c t l\"]",
+		"scenes: [\"terminal\"]",
+	} {
+		if !strings.Contains(dictionaryText, fragment) {
+			t.Fatalf("dictionary example missing %q in:\n%s", fragment, dictionaryText)
+		}
+	}
+}
+
+func TestInitDefaultBackfillsStarterDictionaryForExistingConfig(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte("runtime:\n  mode: desktop\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(config) error = %v", err)
+	}
+
+	result, err := InitDefault(path, false)
+	if err != nil {
+		t.Fatalf("InitDefault() error = %v", err)
+	}
+	if result.ConfigWritten {
+		t.Fatal("expected existing config to remain in place")
+	}
+	if !result.ConfigUpdated {
+		t.Fatal("expected config to be updated with default dictionary path")
+	}
+	if !result.DictionaryWritten {
+		t.Fatal("expected starter dictionary to be written")
+	}
+	if result.DictionaryPath != filepath.Join(dir, "dictionary.yaml") {
+		t.Fatalf("DictionaryPath = %q", result.DictionaryPath)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Dictionary.File != filepath.Join(dir, "dictionary.yaml") {
+		t.Fatalf("Dictionary.File = %q", cfg.Dictionary.File)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "dictionary.yaml")); err != nil {
+		t.Fatalf("starter dictionary missing: %v", err)
+	}
+}
+
+func TestInitDefaultCreatesMissingCustomDictionaryWithoutChangingConfig(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	customDictionary := filepath.Join(dir, "custom-dictionary.yaml")
+	data := []byte("dictionary:\n  file: ./custom-dictionary.yaml\n")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("WriteFile(config) error = %v", err)
+	}
+
+	result, err := InitDefault(path, false)
+	if err != nil {
+		t.Fatalf("InitDefault() error = %v", err)
+	}
+	if result.ConfigWritten || result.ConfigUpdated {
+		t.Fatalf("unexpected config mutation: %+v", result)
+	}
+	if !result.DictionaryWritten {
+		t.Fatal("expected custom starter dictionary to be written")
+	}
+	if result.DictionaryPath != customDictionary {
+		t.Fatalf("DictionaryPath = %q, want %q", result.DictionaryPath, customDictionary)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Dictionary.File != customDictionary {
+		t.Fatalf("Dictionary.File = %q, want %q", cfg.Dictionary.File, customDictionary)
 	}
 }
 

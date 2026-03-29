@@ -259,6 +259,7 @@ OpenAI Responses API を使いたい場合は、`llm.endpoint_type` を `respons
 - 辞書は LLM correction prompt に注入され、さらに LLM 出力後に決定的な正規化をもう一度行います
 - 1 文字 alias は prompt には入れず、コード側の厳格な token 境界置換だけで扱います
 - v1 ではホットリロードしません。編集後は `coe.service` を再起動してください
+- `coe config init` は `config.yaml` と同じ場所に `./dictionary.yaml` を生成または補完し、2 つのスターター項目を入れます
 
 例:
 

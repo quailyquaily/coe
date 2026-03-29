@@ -20,17 +20,23 @@ func runConfig(_ context.Context, args []string) error {
 			return err
 		}
 
-		written, err := config.WriteDefault(path, false)
+		result, err := config.InitDefault(path, false)
 		if err != nil {
 			return err
 		}
 
-		if written {
+		if result.ConfigWritten {
 			fmt.Printf("wrote default config to %s\n", path)
-			return nil
+		} else if result.ConfigUpdated {
+			fmt.Printf("updated config to enable starter dictionary at %s\n", path)
+		} else {
+			fmt.Printf("config already exists at %s\n", path)
 		}
 
-		fmt.Printf("config already exists at %s\n", path)
+		if result.DictionaryWritten {
+			fmt.Printf("wrote starter dictionary to %s\n", result.DictionaryPath)
+			return nil
+		}
 		return nil
 	case "set":
 		if len(args) != 3 {

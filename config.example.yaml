@@ -93,7 +93,8 @@ llm:
 # Personal dictionary used during LLM correction and post-correction normalization.
 dictionary:
   # Optional YAML file path. Relative paths are resolved from this config file.
-  file: ""
+  # `coe config init` creates `./dictionary.yaml` with starter entries.
+  file: "./dictionary.yaml"
 
 # Clipboard and paste behavior.
 output:

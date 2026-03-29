@@ -251,6 +251,7 @@ asr:
 - 词典会注入到 LLM correction prompt，并在 LLM 输出后再做一次确定性归一化
 - 单字符 alias 不注入 prompt，只走程序里的严格 token 边界替换
 - v1 不做热加载；修改词典后重启 `coe.service`
+- `coe config init` 会在 `config.yaml` 同目录下创建或补齐 `./dictionary.yaml`，里面带两条起步示例
 
 示例：
 

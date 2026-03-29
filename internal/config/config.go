@@ -11,6 +11,7 @@ import (
 )
 
 const envConfigPath = "COE_CONFIG"
+const defaultDictionaryRelativePath = "./dictionary.yaml"
 
 const (
 	RuntimeModeDesktop = "desktop"
@@ -90,6 +91,13 @@ type NotificationsConfig struct {
 	EnableSystem           bool `yaml:"enable_system"`
 	NotifyOnComplete       bool `yaml:"notify_on_complete"`
 	NotifyOnRecordingStart bool `yaml:"notify_on_recording_start"`
+}
+
+type InitResult struct {
+	ConfigWritten     bool
+	ConfigUpdated     bool
+	DictionaryWritten bool
+	DictionaryPath    string
 }
 
 func Default() Config {
@@ -174,6 +182,10 @@ func ResolveEnvPath() (string, error) {
 	return filepath.Join(base, "coe", "env"), nil
 }
 
+func DefaultDictionaryPath(configPath string) string {
+	return dictionaryPathForConfig(configPath)
+}
+
 func LoadEnvFile() error {
 	path, err := ResolveEnvPath()
 	if err != nil {
@@ -229,7 +241,53 @@ func IsSupportedRuntimeMode(value string) bool {
 	}
 }
 
+func InitDefault(path string, overwrite bool) (InitResult, error) {
+	if !overwrite {
+		if _, err := os.Stat(path); err == nil {
+			return ensureStarterDictionary(path)
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return InitResult{}, err
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return InitResult{}, err
+	}
+
+	cfg := Default()
+	cfg.Dictionary.File = defaultDictionaryRelativePath
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return InitResult{}, err
+	}
+
+	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+		return InitResult{}, err
+	}
+	dictionaryPath := dictionaryPathForConfig(path)
+	dictionaryWritten, err := writeDefaultDictionary(dictionaryPath, overwrite)
+	if err != nil {
+		return InitResult{}, err
+	}
+
+	return InitResult{
+		ConfigWritten:     true,
+		DictionaryWritten: dictionaryWritten,
+		DictionaryPath:    dictionaryPath,
+	}, nil
+}
+
 func WriteDefault(path string, overwrite bool) (bool, error) {
+	result, err := InitDefault(path, overwrite)
+	return result.ConfigWritten, err
+}
+
+func dictionaryPathForConfig(path string) string {
+	return filepath.Join(filepath.Dir(path), "dictionary.yaml")
+}
+
+func writeDefaultDictionary(path string, overwrite bool) (bool, error) {
 	if !overwrite {
 		if _, err := os.Stat(path); err == nil {
 			return false, nil
@@ -242,16 +300,52 @@ func WriteDefault(path string, overwrite bool) (bool, error) {
 		return false, err
 	}
 
-	data, err := yaml.Marshal(Default())
-	if err != nil {
+	if err := os.WriteFile(path, []byte(defaultDictionaryYAML()), 0o644); err != nil {
 		return false, err
 	}
-
-	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
-		return false, err
-	}
-
 	return true, nil
+}
+
+func defaultDictionaryYAML() string {
+	return strings.Join([]string{
+		"entries:",
+		"  - canonical: \"Coe\"",
+		"    aliases: [\"扣诶\"]",
+		"",
+		"  - canonical: \"systemctl\"",
+		"    aliases: [\"system control\", \"system c t l\"]",
+		"    scenes: [\"terminal\"]",
+		"",
+	}, "\n")
+}
+
+func ensureStarterDictionary(path string) (InitResult, error) {
+	cfg, err := Load(path)
+	if err != nil {
+		return InitResult{}, err
+	}
+
+	configUpdated := false
+	dictionaryPath := strings.TrimSpace(cfg.Dictionary.File)
+	if dictionaryPath == "" {
+		cfg.Dictionary.File = defaultDictionaryRelativePath
+		if err := Save(path, cfg); err != nil {
+			return InitResult{}, err
+		}
+		configUpdated = true
+		dictionaryPath = dictionaryPathForConfig(path)
+	}
+
+	dictionaryWritten, err := writeDefaultDictionary(dictionaryPath, false)
+	if err != nil {
+		return InitResult{}, err
+	}
+
+	return InitResult{
+		ConfigUpdated:     configUpdated,
+		DictionaryWritten: dictionaryWritten,
+		DictionaryPath:    dictionaryPath,
+	}, nil
 }
 
 func Save(path string, cfg Config) error {
