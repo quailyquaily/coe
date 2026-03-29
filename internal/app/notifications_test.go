@@ -64,10 +64,10 @@ func TestNotificationForServiceReady(t *testing.T) {
 	}
 
 	msg := instance.notificationForServiceReady()
-	if msg.Title != "Coe service ready" {
+	if msg.Title != "Coe is ready" {
 		t.Fatalf("unexpected title %q", msg.Title)
 	}
-	if got := msg.Body; got != "Background service is running and ready for dictation.\nTrigger: <Shift><Super>d" {
+	if got := msg.Body; got != "Coe is running.\nPress <Shift><Super>d to start." {
 		t.Fatalf("unexpected body %q", got)
 	}
 }
@@ -81,10 +81,10 @@ func TestNotificationForServiceReadyLocalized(t *testing.T) {
 	}
 
 	msg := instance.notificationForServiceReady()
-	if msg.Title != "Coe 服务已就绪" {
+	if msg.Title != "Coe 已就绪" {
 		t.Fatalf("unexpected title %q", msg.Title)
 	}
-	if got := msg.Body; got != "后台服务已启动，可以开始听写。\n触发键：<Shift><Super>d" {
+	if got := msg.Body; got != "Coe 正在运行。\n按 <Shift><Super>d 开始。" {
 		t.Fatalf("unexpected body %q", got)
 	}
 }
@@ -122,7 +122,7 @@ func TestNotificationForProcessingWithFcitxSource(t *testing.T) {
 		Corrected:  "你好呀，哈喽！",
 	}, "fcitx-module")
 
-	if got := msg.Body; got != "你好呀，哈喽！\nText sent back through Fcitx." {
+	if got := msg.Body; got != "你好呀，哈喽！\nText sent via Fcitx." {
 		t.Fatalf("unexpected body %q", got)
 	}
 }
