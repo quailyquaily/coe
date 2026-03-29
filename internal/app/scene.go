@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"coe/internal/focus"
 	"coe/internal/llm"
 	"coe/internal/pipeline"
 	"coe/internal/scene"
@@ -31,6 +32,53 @@ func (a *App) sceneDisplayName(value scene.Scene) string {
 		return ""
 	}
 	return value.DisplayName(a.Localizer)
+}
+
+func (a *App) focusTarget(ctx context.Context) (*focus.Target, error) {
+	if a.Pipeline.Output == nil {
+		return nil, fmt.Errorf("output coordinator is not configured")
+	}
+
+	target, err := a.Pipeline.Output.FocusedTarget(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &target, nil
+}
+
+func (a *App) autoSwitchScene(ctx context.Context, logger *slog.Logger) (scene.Scene, *focus.Target) {
+	current := a.currentScene()
+	if a.SceneState == nil {
+		return current, nil
+	}
+
+	target, err := a.focusTarget(ctx)
+	if err != nil {
+		return current, nil
+	}
+
+	targetSceneID := scene.IDGeneral
+	if focus.LooksLikeTerminal(*target) {
+		targetSceneID = scene.IDTerminal
+	}
+
+	changed, current, err := a.SceneState.SwitchTo(targetSceneID)
+	if err != nil {
+		logger.Warn("scene auto-switch failed", "error", err, "focus_target", target.Summary())
+		return a.currentScene(), target
+	}
+	if changed {
+		a.emitSceneChanged(logger, current)
+		a.emitSceneSwitchedNotification(logger, a.sceneDisplayName(current))
+		logger.Info(
+			"scene auto-switched",
+			"scene", current.ID,
+			"display_name", a.sceneDisplayName(current),
+			"focus_target", target.Summary(),
+		)
+	}
+
+	return current, target
 }
 
 func (a *App) correctorForScene(id string) llm.Corrector {

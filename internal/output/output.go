@@ -78,6 +78,10 @@ func (c *Coordinator) Summary() string {
 }
 
 func (c *Coordinator) Deliver(ctx context.Context, text string) (Delivery, error) {
+	return c.DeliverWithTarget(ctx, text, nil)
+}
+
+func (c *Coordinator) DeliverWithTarget(ctx context.Context, text string, target *focus.Target) (Delivery, error) {
 	result := Delivery{}
 	if c == nil || text == "" {
 		return result, nil
@@ -87,7 +91,7 @@ func (c *Coordinator) Deliver(ctx context.Context, text string) (Delivery, error
 		return result, err
 	}
 
-	if err := c.autoPaste(ctx, &result); err != nil {
+	if err := c.autoPaste(ctx, &result, target); err != nil {
 		return result, err
 	}
 
@@ -156,7 +160,7 @@ func (c *Coordinator) writeClipboard(ctx context.Context, text string, result *D
 	return fmt.Errorf("clipboard output is not configured")
 }
 
-func (c *Coordinator) autoPaste(ctx context.Context, result *Delivery) error {
+func (c *Coordinator) autoPaste(ctx context.Context, result *Delivery, target *focus.Target) error {
 	startedAt := time.Now()
 	defer func() {
 		result.PasteDuration = time.Since(startedAt)
@@ -166,9 +170,9 @@ func (c *Coordinator) autoPaste(ctx context.Context, result *Delivery) error {
 		return nil
 	}
 
-	shortcut, target := c.resolvePasteShortcut(ctx)
+	shortcut, targetSummary := c.resolvePasteShortcut(ctx, target)
 	result.PasteShortcut = shortcut
-	result.PasteTarget = target
+	result.PasteTarget = targetSummary
 
 	var portalErr error
 	if c.UsePortalPaste {
@@ -238,21 +242,29 @@ func sleepContext(ctx context.Context, d time.Duration) error {
 	}
 }
 
-func (c *Coordinator) resolvePasteShortcut(ctx context.Context) (string, string) {
+func (c *Coordinator) FocusedTarget(ctx context.Context) (focus.Target, error) {
+	if c == nil || c.FocusProvider == nil {
+		return focus.Target{}, fmt.Errorf("focus provider is unavailable")
+	}
+	return c.FocusProvider.Focused(ctx)
+}
+
+func (c *Coordinator) resolvePasteShortcut(ctx context.Context, target *focus.Target) (string, string) {
 	baseShortcut := NormalizePasteShortcut(c.PasteShortcut)
 	terminalShortcut := NormalizePasteShortcut(c.TerminalPasteShortcut)
 	if terminalShortcut == "" {
 		terminalShortcut = "ctrl+shift+v"
 	}
-	if c.FocusProvider == nil {
-		return baseShortcut, ""
+
+	if target == nil {
+		focused, err := c.FocusedTarget(ctx)
+		if err != nil {
+			return baseShortcut, ""
+		}
+		target = &focused
 	}
 
-	target, err := c.FocusProvider.Focused(ctx)
-	if err != nil {
-		return baseShortcut, ""
-	}
-	if looksLikeTerminalTarget(target) {
+	if focus.LooksLikeTerminal(*target) {
 		return terminalShortcut, target.Summary()
 	}
 	return baseShortcut, target.Summary()

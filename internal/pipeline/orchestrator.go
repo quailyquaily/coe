@@ -8,6 +8,7 @@ import (
 
 	"coe/internal/asr"
 	"coe/internal/audio"
+	"coe/internal/focus"
 	"coe/internal/llm"
 	"coe/internal/output"
 )
@@ -131,12 +132,16 @@ func (o Orchestrator) ApplyCorrection(ctx context.Context, result Result, correc
 }
 
 func (o Orchestrator) DeliverResult(ctx context.Context, result Result) (Result, error) {
+	return o.DeliverResultWithTarget(ctx, result, nil)
+}
+
+func (o Orchestrator) DeliverResultWithTarget(ctx context.Context, result Result, target *focus.Target) (Result, error) {
 	if o.Output == nil || strings.TrimSpace(result.Corrected) == "" {
 		return result, nil
 	}
 
 	outputStartedAt := time.Now()
-	delivery, err := o.Output.Deliver(ctx, result.Corrected)
+	delivery, err := o.Output.DeliverWithTarget(ctx, result.Corrected, target)
 	result.OutputDuration = time.Since(outputStartedAt)
 	if err != nil {
 		return Result{}, err

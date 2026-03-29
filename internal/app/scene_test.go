@@ -3,12 +3,17 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
 	"testing"
 
 	"coe/internal/dictionary"
+	"coe/internal/focus"
 	"coe/internal/i18n"
 	"coe/internal/llm"
 	"coe/internal/notify"
+	"coe/internal/output"
 	"coe/internal/pipeline"
 	"coe/internal/scene"
 )
@@ -37,6 +42,40 @@ func (stubNotifier) Send(context.Context, notify.Message) error {
 }
 
 func (stubNotifier) Close() error {
+	return nil
+}
+
+type recordingNotifier struct {
+	messages []notify.Message
+}
+
+func (n *recordingNotifier) Summary() string {
+	return "test"
+}
+
+func (n *recordingNotifier) Send(_ context.Context, msg notify.Message) error {
+	n.messages = append(n.messages, msg)
+	return nil
+}
+
+func (n *recordingNotifier) Close() error {
+	return nil
+}
+
+type stubFocusProvider struct {
+	target focus.Target
+	err    error
+}
+
+func (p stubFocusProvider) Focused(context.Context) (focus.Target, error) {
+	return p.target, p.err
+}
+
+func (stubFocusProvider) Summary() string {
+	return "stub"
+}
+
+func (stubFocusProvider) Close() error {
 	return nil
 }
 
@@ -156,5 +195,113 @@ entries:
 	}, scene.IDTerminal)
 	if result.Corrected != "please run systemctl now" {
 		t.Fatalf("Corrected = %q", result.Corrected)
+	}
+}
+
+func TestAutoSwitchSceneUsesFocusedTerminal(t *testing.T) {
+	t.Parallel()
+
+	sceneState, err := scene.NewState(scene.DefaultCatalog(), scene.IDGeneral)
+	if err != nil {
+		t.Fatalf("NewState() error = %v", err)
+	}
+
+	notifier := &recordingNotifier{}
+	instance := &App{
+		Localizer:  i18n.NewForLocale("en_US.UTF-8"),
+		Notifier:   notifier,
+		SceneState: sceneState,
+		Pipeline: pipeline.Orchestrator{
+			Output: &output.Coordinator{
+				FocusProvider: stubFocusProvider{
+					target: focus.Target{WMClass: "gnome-terminal-server"},
+				},
+			},
+		},
+	}
+
+	current, target := instance.autoSwitchScene(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if target == nil || target.WMClass != "gnome-terminal-server" {
+		t.Fatalf("target = %#v", target)
+	}
+	if current.ID != scene.IDTerminal {
+		t.Fatalf("scene = %q, want %q", current.ID, scene.IDTerminal)
+	}
+	if instance.currentScene().ID != scene.IDTerminal {
+		t.Fatalf("currentScene().ID = %q, want %q", instance.currentScene().ID, scene.IDTerminal)
+	}
+	if len(notifier.messages) != 1 {
+		t.Fatalf("notification count = %d, want 1", len(notifier.messages))
+	}
+	if notifier.messages[0].Body != "Terminal" {
+		t.Fatalf("notification body = %q, want %q", notifier.messages[0].Body, "Terminal")
+	}
+}
+
+func TestAutoSwitchSceneSkipsOnFocusError(t *testing.T) {
+	t.Parallel()
+
+	sceneState, err := scene.NewState(scene.DefaultCatalog(), scene.IDTerminal)
+	if err != nil {
+		t.Fatalf("NewState() error = %v", err)
+	}
+
+	notifier := &recordingNotifier{}
+	instance := &App{
+		Localizer:  i18n.NewForLocale("en_US.UTF-8"),
+		Notifier:   notifier,
+		SceneState: sceneState,
+		Pipeline: pipeline.Orchestrator{
+			Output: &output.Coordinator{
+				FocusProvider: stubFocusProvider{
+					err: fmt.Errorf("focus unavailable"),
+				},
+			},
+		},
+	}
+
+	current, target := instance.autoSwitchScene(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if target != nil {
+		t.Fatalf("target = %#v, want nil", target)
+	}
+	if current.ID != scene.IDTerminal {
+		t.Fatalf("scene = %q, want %q", current.ID, scene.IDTerminal)
+	}
+	if len(notifier.messages) != 0 {
+		t.Fatalf("notification count = %d, want 0", len(notifier.messages))
+	}
+}
+
+func TestAutoSwitchSceneDoesNotNotifyWhenSceneUnchanged(t *testing.T) {
+	t.Parallel()
+
+	sceneState, err := scene.NewState(scene.DefaultCatalog(), scene.IDGeneral)
+	if err != nil {
+		t.Fatalf("NewState() error = %v", err)
+	}
+
+	notifier := &recordingNotifier{}
+	instance := &App{
+		Localizer:  i18n.NewForLocale("en_US.UTF-8"),
+		Notifier:   notifier,
+		SceneState: sceneState,
+		Pipeline: pipeline.Orchestrator{
+			Output: &output.Coordinator{
+				FocusProvider: stubFocusProvider{
+					target: focus.Target{WMClass: "gedit"},
+				},
+			},
+		},
+	}
+
+	current, target := instance.autoSwitchScene(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if target == nil || target.WMClass != "gedit" {
+		t.Fatalf("target = %#v", target)
+	}
+	if current.ID != scene.IDGeneral {
+		t.Fatalf("scene = %q, want %q", current.ID, scene.IDGeneral)
+	}
+	if len(notifier.messages) != 0 {
+		t.Fatalf("notification count = %d, want 0", len(notifier.messages))
 	}
 }

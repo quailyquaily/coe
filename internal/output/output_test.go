@@ -311,7 +311,47 @@ func TestDeliverUsesTerminalPasteShortcutForFocusedTerminal(t *testing.T) {
 	}
 }
 
-func TestLooksLikeTerminalTarget(t *testing.T) {
+func TestDeliverWithTargetUsesProvidedFocusSample(t *testing.T) {
+	dir := t.TempDir()
+	clipboardSink := filepath.Join(dir, "clipboard.txt")
+	pasteSink := filepath.Join(dir, "paste.txt")
+	clipboardBin := filepath.Join(dir, "fake-wl-copy.sh")
+	pasteBin := filepath.Join(dir, "ydotool")
+
+	if err := os.WriteFile(clipboardBin, []byte("#!/bin/sh\ncat > \"$COE_CLIPBOARD_SINK\"\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile(clipboard) error = %v", err)
+	}
+	if err := os.WriteFile(pasteBin, []byte("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$COE_PASTE_SINK\"\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile(paste) error = %v", err)
+	}
+
+	t.Setenv("COE_CLIPBOARD_SINK", clipboardSink)
+	t.Setenv("COE_PASTE_SINK", pasteSink)
+
+	coord := &Coordinator{
+		ClipboardPlan:         "command",
+		PastePlan:             "command",
+		ClipboardBinary:       clipboardBin,
+		PasteBinary:           pasteBin,
+		EnableAutoPaste:       true,
+		PasteShortcut:         "ctrl+v",
+		TerminalPasteShortcut: "ctrl+shift+v",
+	}
+
+	target := &focus.Target{WMClass: "gnome-terminal-server"}
+	delivery, err := coord.DeliverWithTarget(context.Background(), "hello", target)
+	if err != nil {
+		t.Fatalf("DeliverWithTarget() error = %v", err)
+	}
+	if delivery.PasteShortcut != "ctrl+shift+v" {
+		t.Fatalf("paste shortcut = %q, want %q", delivery.PasteShortcut, "ctrl+shift+v")
+	}
+	if delivery.PasteTarget != "gnome-terminal-server" {
+		t.Fatalf("paste target = %q, want %q", delivery.PasteTarget, "gnome-terminal-server")
+	}
+}
+
+func TestLooksLikeTerminal(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -335,8 +375,8 @@ func TestLooksLikeTerminalTarget(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := looksLikeTerminalTarget(tt.target); got != tt.want {
-				t.Fatalf("looksLikeTerminalTarget(%+v) = %v, want %v", tt.target, got, tt.want)
+			if got := focus.LooksLikeTerminal(tt.target); got != tt.want {
+				t.Fatalf("LooksLikeTerminal(%+v) = %v, want %v", tt.target, got, tt.want)
 			}
 		})
 	}

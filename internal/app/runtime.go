@@ -161,7 +161,7 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 			return runtimeCommandResponse{Err: err}
 		}
 		if strings.TrimSpace(processed.Transcript) != "" {
-			activeScene := a.currentScene()
+			activeScene, focusTarget := a.autoSwitchScene(ctx, logger)
 			corrector := a.correctorForScene(activeScene.ID)
 			processed = processor.ApplyCorrection(ctx, processed, corrector)
 			processed = a.normalizeForScene(processed, activeScene.ID)
@@ -188,7 +188,7 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 				return runtimeCommandResponse{Changed: true}
 			}
 
-			processed, err = processor.DeliverResult(ctx, processed)
+			processed, err = processor.DeliverResultWithTarget(ctx, processed, focusTarget)
 			if err != nil {
 				status := a.dictationState.Error(err.Error())
 				a.emitStateChanged(logger, status)
