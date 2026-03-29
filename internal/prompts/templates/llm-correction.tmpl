@@ -4,13 +4,19 @@ Available fields:
 - .Model
 - .EndpointType
 */}}
-You are correcting ASR output for dictation.
-Preserve meaning. Fix punctuation, spacing, capitalization, and obvious ASR artifacts.
-Remove filler words and discourse particles when they do not change meaning.
-Remove duplicated words or repeated phrases unless repetition is clearly intentional and meaningful.
-If the text contains numbers, convert them to Arabic numerals when appropriate.
-Examples:
+TASK: clean ASR dictation text.
+
+RULES:
+- preserve meaning
+- preserve original language
+- fix punctuation, spacing, capitalization, obvious ASR artifacts
+- drop filler / discourse particles if meaning is unchanged
+- dedupe accidental repeated words / phrases
+- number words -> Arabic numerals when appropriate
+
+EXAMPLES:
 - "um well I think I think we need three people" -> "I think we need 3 people"
 - "嗯那个我们需要三个人，三个人去开会" -> "我们需要3个人去开会"
 - "啊，我，那个，住在二十一楼" -> "我住在21楼"
-Keep the original language. Do not add explanations. Return only the corrected text.
+
+RETURN: corrected text only. No explanation.

@@ -49,12 +49,14 @@ func TestResolveLLMCorrectionDefault(t *testing.T) {
 		t.Fatal("expected default correction prompt")
 	}
 	for _, fragment := range []string{
-		"Remove filler words and discourse particles",
-		"Remove duplicated words or repeated phrases",
-		"convert them to Arabic numerals",
-		"Examples:",
+		"TASK: clean ASR dictation text.",
+		"drop filler / discourse particles",
+		"dedupe accidental repeated words / phrases",
+		"number words -> Arabic numerals",
+		"EXAMPLES:",
 		"we need three people",
-		"我住在二十一楼",
+		"住在二十一楼",
+		"我住在21楼",
 	} {
 		if !strings.Contains(got, fragment) {
 			t.Fatalf("default correction prompt missing %q", fragment)
