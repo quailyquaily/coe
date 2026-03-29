@@ -25,21 +25,23 @@ func NewClient(provider config.ASRConfig) (Client, error) {
 		return StubClient{}, nil
 	case "openai":
 		return OpenAIClient{
-			Endpoint:  provider.Endpoint,
-			Model:     provider.Model,
-			APIKey:    provider.APIKey,
-			APIKeyEnv: provider.APIKeyEnv,
-			Language:  provider.Language,
-			Prompt:    provider.Prompt,
+			Endpoint:   provider.Endpoint,
+			Model:      provider.Model,
+			APIKey:     provider.APIKey,
+			APIKeyEnv:  provider.APIKeyEnv,
+			Language:   provider.Language,
+			Prompt:     provider.Prompt,
+			PromptFile: provider.PromptFile,
 		}, nil
 	case "whispercpp", "whisper.cpp":
 		return WhisperCPPCLIClient{
-			Binary:    provider.Binary,
-			ModelPath: provider.ModelPath,
-			Language:  provider.Language,
-			Prompt:    provider.Prompt,
-			Threads:   provider.Threads,
-			UseGPU:    provider.UseGPU,
+			Binary:     provider.Binary,
+			ModelPath:  provider.ModelPath,
+			Language:   provider.Language,
+			Prompt:     provider.Prompt,
+			PromptFile: provider.PromptFile,
+			Threads:    provider.Threads,
+			UseGPU:     provider.UseGPU,
 		}, nil
 	case "sensevoice":
 		return SenseVoiceHTTPClient{

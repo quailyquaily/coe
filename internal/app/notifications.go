@@ -6,11 +6,20 @@ import (
 	"strings"
 	"time"
 
+	"coe/internal/i18n"
 	"coe/internal/notify"
 	"coe/internal/pipeline"
 )
 
 const notificationTimeout = 3 * time.Second
+
+type failureNotificationKind string
+
+const (
+	failureRecordingStart failureNotificationKind = "recording_start"
+	failureRecordingStop  failureNotificationKind = "recording_stop"
+	failureDictation      failureNotificationKind = "dictation"
+)
 
 func (a *App) emitNotification(logger *slog.Logger, msg notify.Message) {
 	if a.Notifier == nil || msg.Title == "" {
@@ -61,23 +70,25 @@ func (a *App) notificationForStart() notify.Message {
 	if !a.Config.Notifications.NotifyOnRecordingStart {
 		return notify.Message{}
 	}
+	loc := a.Localizer
 
 	return notify.Message{
-		Title:   "Dictation started",
-		Body:    "Speak now, then trigger again to stop recording.",
+		Title:   loc.Text(i18n.RecordingStartedTitle),
+		Body:    loc.Text(i18n.RecordingStartedBody),
 		Urgency: notify.UrgencyLow,
 		Timeout: 2200 * time.Millisecond,
 	}
 }
 
 func (a *App) notificationForServiceReady() notify.Message {
-	lines := []string{"Background service is running and ready for dictation."}
+	loc := a.Localizer
+	lines := []string{loc.Text(i18n.ServiceReadyBody)}
 	if trigger := strings.TrimSpace(a.TriggerKey(context.Background())); trigger != "" {
-		lines = append(lines, "Trigger: "+trigger)
+		lines = append(lines, loc.Format(i18n.ServiceReadyTriggerLine, trigger))
 	}
 
 	return notify.Message{
-		Title:   "Coe service ready",
+		Title:   loc.Text(i18n.ServiceReadyTitle),
 		Body:    strings.Join(lines, "\n"),
 		Urgency: notify.UrgencyNormal,
 		Timeout: 5000 * time.Millisecond,
@@ -85,49 +96,66 @@ func (a *App) notificationForServiceReady() notify.Message {
 }
 
 func (a *App) notificationForProcessing(result pipeline.Result, source string) notify.Message {
+	if !a.Config.Notifications.NotifyOnComplete {
+		return notify.Message{}
+	}
+	loc := a.Localizer
+
 	if result.Transcript == "" {
 		return notify.Message{
-			Title:   "No speech detected",
-			Body:    normalizeBody(result.TranscriptWarning, "No transcript was produced. The microphone input may be muted, too quiet, near-silent, or corrupted."),
+			Title:   loc.Text(i18n.NoSpeechDetectedTitle),
+			Body:    normalizeBody(loc.LocalizeWarning(result.TranscriptWarning), loc.Text(i18n.NoSpeechDetectedFallback)),
 			Urgency: notify.UrgencyNormal,
 			Timeout: 4500 * time.Millisecond,
 		}
 	}
 
-	status := "Text copied to the clipboard."
+	status := loc.Text(i18n.DeliveryClipboard)
 	if source == "fcitx-module" {
-		status = "Text sent back through Fcitx."
+		status = loc.Text(i18n.DeliveryFcitx)
 	} else if result.Output.PasteExecuted {
-		status = "Text copied and pasted into the focused app."
+		status = loc.Text(i18n.DeliveryPasted)
 	} else if result.Output.ClipboardWritten {
-		status = "Text copied to the clipboard."
+		status = loc.Text(i18n.DeliveryClipboard)
 	} else {
-		status = "Text was transcribed, but no delivery action completed."
+		status = loc.Text(i18n.DeliveryNoAction)
 	}
 	if result.Output.PasteWarning != "" {
-		status = status + " Auto-paste needs attention."
+		status = status + " " + loc.Text(i18n.AutoPasteNeedsAttention)
 	}
 
-	lines := []string{}
-	if a.Config.Notifications.ShowTextPreview {
-		lines = append(lines, previewText(result.Corrected, 140))
+	text := strings.TrimSpace(result.Corrected)
+	if text == "" {
+		text = strings.TrimSpace(result.Transcript)
 	}
-	lines = append(lines, status)
+
+	lines := []string{text, status}
 	if result.CorrectionWarning != "" {
-		lines = append(lines, "Correction fell back to the raw transcript.")
+		lines = append(lines, loc.Text(i18n.CorrectionFallback))
 	}
 
 	return notify.Message{
-		Title:   "Dictation complete",
+		Title:   loc.Text(i18n.DictationCompleteTitle),
 		Body:    strings.Join(compact(lines), "\n"),
 		Urgency: notify.UrgencyNormal,
 		Timeout: 5000 * time.Millisecond,
 	}
 }
 
-func notificationForFailure(title string, err error) notify.Message {
+func (a *App) notificationForFailure(kind failureNotificationKind, err error) notify.Message {
 	if err == nil {
 		return notify.Message{}
+	}
+
+	loc := a.Localizer
+	title := loc.Text(i18n.DictationFailedTitle)
+	switch kind {
+	case failureRecordingStart:
+		title = loc.Text(i18n.RecordingFailedToStartTitle)
+	case failureRecordingStop:
+		title = loc.Text(i18n.RecordingFailedTitle)
+	case failureDictation:
+		title = loc.Text(i18n.DictationFailedTitle)
 	}
 
 	return notify.Message{
@@ -143,16 +171,6 @@ func normalizeBody(primary, fallback string) string {
 		return primary
 	}
 	return fallback
-}
-
-func previewText(text string, limit int) string {
-	text = strings.TrimSpace(strings.ReplaceAll(text, "\n", " "))
-	if limit <= 0 || len([]rune(text)) <= limit {
-		return text
-	}
-
-	runes := []rune(text)
-	return string(runes[:limit]) + "..."
 }
 
 func compact(lines []string) []string {

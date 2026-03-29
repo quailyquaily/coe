@@ -46,17 +46,18 @@ type AudioConfig struct {
 }
 
 type ASRConfig struct {
-	Provider  string `yaml:"provider"`
-	Endpoint  string `yaml:"endpoint"`
-	Model     string `yaml:"model"`
-	Language  string `yaml:"language"`
-	Prompt    string `yaml:"prompt"`
-	APIKey    string `yaml:"api_key"`
-	APIKeyEnv string `yaml:"api_key_env"`
-	Binary    string `yaml:"binary"`
-	ModelPath string `yaml:"model_path"`
-	Threads   int    `yaml:"threads"`
-	UseGPU    bool   `yaml:"use_gpu"`
+	Provider   string `yaml:"provider"`
+	Endpoint   string `yaml:"endpoint"`
+	Model      string `yaml:"model"`
+	Language   string `yaml:"language"`
+	Prompt     string `yaml:"prompt"`
+	PromptFile string `yaml:"prompt_file"`
+	APIKey     string `yaml:"api_key"`
+	APIKeyEnv  string `yaml:"api_key_env"`
+	Binary     string `yaml:"binary"`
+	ModelPath  string `yaml:"model_path"`
+	Threads    int    `yaml:"threads"`
+	UseGPU     bool   `yaml:"use_gpu"`
 }
 
 type LLMConfig struct {
@@ -67,6 +68,7 @@ type LLMConfig struct {
 	APIKey       string `yaml:"api_key"`
 	APIKeyEnv    string `yaml:"api_key_env"`
 	Prompt       string `yaml:"prompt"`
+	PromptFile   string `yaml:"prompt_file"`
 }
 
 type OutputConfig struct {
@@ -81,7 +83,7 @@ type OutputConfig struct {
 
 type NotificationsConfig struct {
 	EnableSystem           bool `yaml:"enable_system"`
-	ShowTextPreview        bool `yaml:"show_text_preview"`
+	NotifyOnComplete       bool `yaml:"notify_on_complete"`
 	NotifyOnRecordingStart bool `yaml:"notify_on_recording_start"`
 }
 
@@ -103,17 +105,18 @@ func Default() Config {
 			Format:         "s16",
 		},
 		ASR: ASRConfig{
-			Provider:  "openai",
-			Endpoint:  "https://api.openai.com/v1/audio/transcriptions",
-			Model:     "gpt-4o-mini-transcribe",
-			Language:  "zh",
-			Prompt:    "",
-			APIKey:    "",
-			APIKeyEnv: "OPENAI_API_KEY",
-			Binary:    "whisper-cli",
-			ModelPath: "",
-			Threads:   0,
-			UseGPU:    false,
+			Provider:   "openai",
+			Endpoint:   "https://api.openai.com/v1/audio/transcriptions",
+			Model:      "gpt-4o-mini-transcribe",
+			Language:   "zh",
+			Prompt:     "",
+			PromptFile: "",
+			APIKey:     "",
+			APIKeyEnv:  "OPENAI_API_KEY",
+			Binary:     "whisper-cli",
+			ModelPath:  "",
+			Threads:    0,
+			UseGPU:     false,
 		},
 		LLM: LLMConfig{
 			Provider:     "openai",
@@ -122,6 +125,7 @@ func Default() Config {
 			Model:        "gpt-4o-mini",
 			APIKeyEnv:    "OPENAI_API_KEY",
 			Prompt:       "",
+			PromptFile:   "",
 		},
 		Output: OutputConfig{
 			EnableAutoPaste:       true,
@@ -134,7 +138,7 @@ func Default() Config {
 		},
 		Notifications: NotificationsConfig{
 			EnableSystem:           true,
-			ShowTextPreview:        false,
+			NotifyOnComplete:       false,
 			NotifyOnRecordingStart: false,
 		},
 	}
@@ -193,6 +197,8 @@ func Load(path string) (Config, error) {
 	if !IsSupportedRuntimeMode(cfg.Runtime.Mode) {
 		return Config{}, errors.New("unsupported runtime.mode: " + cfg.Runtime.Mode)
 	}
+	cfg.ASR.PromptFile = resolveConfigRelativePath(path, cfg.ASR.PromptFile)
+	cfg.LLM.PromptFile = resolveConfigRelativePath(path, cfg.LLM.PromptFile)
 
 	return cfg, nil
 }
@@ -312,4 +318,12 @@ func loadEnvFile(path string) error {
 	}
 
 	return nil
+}
+
+func resolveConfigRelativePath(configPath, value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || filepath.IsAbs(trimmed) {
+		return trimmed
+	}
+	return filepath.Join(filepath.Dir(configPath), trimmed)
 }

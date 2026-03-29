@@ -200,7 +200,8 @@ asr:
 
 - `binary` 默认是 `whisper-cli`
 - `model_path` 是 `whisper.cpp` 必填项
-- `prompt` 会作为初始提示词传入
+- `prompt` 会先按 Go `text/template` 渲染，再作为初始提示词传入
+- `prompt_file` 可以把模板放进单独文件里；相对路径会按 `config.yaml` 所在目录解析
 - `threads` 默认取 `GOMAXPROCS`
 - `use_gpu: false` 会加上 `--no-gpu`
 
@@ -236,6 +237,9 @@ asr:
 - 直接写 key 的字段：`llm.api_key`
 - 环境变量字段：`OPENAI_API_KEY`
 
+`llm.prompt` 也会先按 Go `text/template` 渲染，再作为校正指令使用。
+`llm.prompt_file` 也是同样的机制；如果你想把模板放到 YAML 外面，优先用这个。
+
 如果你想改走 OpenAI Responses API，可以把 `llm.endpoint_type` 设成 `responses`。
 
 ### Audio
@@ -255,8 +259,10 @@ asr:
 ### Notifications
 
 - `enable_system: true`
-- `show_text_preview: false`
+- `notify_on_complete: false`
 - `notify_on_recording_start: false`
+
+如果开启 `notify_on_complete`，完成通知会带上纠错后的文本。
 
 ### Runtime
 

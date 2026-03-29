@@ -208,7 +208,8 @@ asr:
 
 - `binary` のデフォルトは `whisper-cli`
 - `model_path` は `whisper.cpp` で必須
-- `prompt` は初期プロンプトとして渡されます
+- `prompt` は Go の `text/template` としてレンダリングされたうえで初期プロンプトとして渡されます
+- `prompt_file` を使うとテンプレートを別ファイルに置けます。相対パスは `config.yaml` から解決されます
 - `threads` のデフォルトは `GOMAXPROCS`
 - `use_gpu: false` は `--no-gpu` を付けます
 
@@ -244,6 +245,9 @@ asr:
 - 直接キーを書くフィールド: `llm.api_key`
 - 環境変数フィールド: `OPENAI_API_KEY`
 
+`llm.prompt` も Go の `text/template` としてレンダリングされたうえで補正指示に使われます。
+`llm.prompt_file` も同じ仕組みで、テンプレートを YAML の外に置きたい場合はこちらを優先してください。
+
 OpenAI Responses API を使いたい場合は、`llm.endpoint_type` を `responses` にしてください。
 
 ### Audio
@@ -263,8 +267,10 @@ OpenAI Responses API を使いたい場合は、`llm.endpoint_type` を `respons
 ### Notifications
 
 - `enable_system: true`
-- `show_text_preview: false`
+- `notify_on_complete: false`
 - `notify_on_recording_start: false`
+
+`notify_on_complete` を有効にすると、完了通知に補正後のテキストが含まれます。
 
 ### Runtime
 

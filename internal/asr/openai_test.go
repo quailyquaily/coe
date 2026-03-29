@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -73,6 +74,68 @@ func TestOpenAIClientTranscribe(t *testing.T) {
 		APIKey:     "test-key",
 		APIKeyEnv:  "OPENAI_API_KEY",
 		Language:   "zh",
+		HTTPClient: server.Client(),
+	}
+
+	result, err := client.Transcribe(context.Background(), audio.Result{
+		Data:       []byte{0x01, 0x02, 0x03, 0x04},
+		ByteCount:  4,
+		SampleRate: 16000,
+		Channels:   1,
+		Format:     "s16",
+	})
+	if err != nil {
+		t.Fatalf("Transcribe() error = %v", err)
+	}
+	if result.Text != "hello world" {
+		t.Fatalf("result.Text = %q", result.Text)
+	}
+}
+
+func TestOpenAIClientTranscribeRendersPromptTemplate(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reader, err := r.MultipartReader()
+		if err != nil {
+			t.Fatalf("MultipartReader() error = %v", err)
+		}
+
+		fields := map[string]string{}
+		for {
+			part, err := reader.NextPart()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatalf("NextPart() error = %v", err)
+			}
+
+			data, err := io.ReadAll(part)
+			if err != nil {
+				t.Fatalf("ReadAll() error = %v", err)
+			}
+			if part.FormName() == "file" {
+				continue
+			}
+			fields[part.FormName()] = string(data)
+		}
+
+		if fields["prompt"] != "Hint for openai / zh / gpt-4o-mini-transcribe" {
+			t.Fatalf("prompt = %q", fields["prompt"])
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"text":"hello world"}`))
+	}))
+	defer server.Close()
+
+	client := OpenAIClient{
+		Endpoint:   server.URL,
+		Model:      "gpt-4o-mini-transcribe",
+		APIKey:     "test-key",
+		Language:   "zh",
+		PromptFile: filepath.Join("testdata", "openai-prompt.tmpl"),
 		HTTPClient: server.Client(),
 	}
 

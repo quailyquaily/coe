@@ -12,6 +12,7 @@ import (
 	"coe/internal/control"
 	"coe/internal/focus"
 	"coe/internal/hotkey"
+	"coe/internal/i18n"
 	dbusipc "coe/internal/ipc/dbus"
 	"coe/internal/llm"
 	"coe/internal/notify"
@@ -137,6 +138,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		ExternalHotkey:    external,
 		ControlSocketPath: controlSocketPath,
 		Notifier:          notificationService,
+		Localizer:         i18n.NewFromEnvironment(),
 		StartupWarnings:   startupWarnings,
 		resourceClosers:   resourceClosers,
 		dictationState:    newDictationState(),

@@ -36,8 +36,8 @@ func TestWriteDefaultAndLoad(t *testing.T) {
 	if !cfg.Notifications.EnableSystem {
 		t.Fatal("expected system notifications to be enabled by default")
 	}
-	if cfg.Notifications.ShowTextPreview {
-		t.Fatal("expected notification text preview to be disabled by default")
+	if cfg.Notifications.NotifyOnComplete {
+		t.Fatal("expected completion notifications to be disabled by default")
 	}
 	if cfg.Runtime.LogLevel != "info" {
 		t.Fatalf("unexpected log level %q", cfg.Runtime.LogLevel)
@@ -63,6 +63,28 @@ func TestLoadRejectsUnsupportedRuntimeMode(t *testing.T) {
 
 	if _, err := Load(path); err == nil {
 		t.Fatal("expected unsupported runtime mode to fail")
+	}
+}
+
+func TestLoadResolvesPromptFilesRelativeToConfig(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	data := []byte("asr:\n  prompt_file: prompts/asr.tmpl\nllm:\n  prompt_file: prompts/llm.tmpl\n")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.ASR.PromptFile != filepath.Join(dir, "prompts", "asr.tmpl") {
+		t.Fatalf("ASR.PromptFile = %q", cfg.ASR.PromptFile)
+	}
+	if cfg.LLM.PromptFile != filepath.Join(dir, "prompts", "llm.tmpl") {
+		t.Fatalf("LLM.PromptFile = %q", cfg.LLM.PromptFile)
 	}
 }
 

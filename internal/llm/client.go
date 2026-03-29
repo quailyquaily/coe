@@ -29,6 +29,7 @@ func NewCorrector(provider config.LLMConfig) (Corrector, error) {
 			APIKey:       provider.APIKey,
 			APIKeyEnv:    provider.APIKeyEnv,
 			Prompt:       provider.Prompt,
+			PromptFile:   provider.PromptFile,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported LLM provider %q", provider.Provider)

@@ -10,15 +10,17 @@ import (
 	"strings"
 
 	"coe/internal/audio"
+	"coe/internal/prompts"
 )
 
 type WhisperCPPCLIClient struct {
-	Binary    string
-	ModelPath string
-	Language  string
-	Prompt    string
-	Threads   int
-	UseGPU    bool
+	Binary     string
+	ModelPath  string
+	Language   string
+	Prompt     string
+	PromptFile string
+	Threads    int
+	UseGPU     bool
 }
 
 func (c WhisperCPPCLIClient) Name() string {
@@ -55,6 +57,14 @@ func (c WhisperCPPCLIClient) Transcribe(ctx context.Context, capture audio.Resul
 	if binary == "" {
 		binary = "whisper-cli"
 	}
+	prompt, err := prompts.ResolveASR(c.Prompt, c.PromptFile, prompts.ASRTemplateData{
+		Provider: "whispercpp",
+		Model:    filepath.Base(strings.TrimSpace(c.ModelPath)),
+		Language: strings.TrimSpace(c.Language),
+	})
+	if err != nil {
+		return Result{}, err
+	}
 
 	args := []string{
 		"--model", modelPath,
@@ -68,7 +78,7 @@ func (c WhisperCPPCLIClient) Transcribe(ctx context.Context, capture audio.Resul
 	} else {
 		args = append(args, "--language", "auto")
 	}
-	if prompt := strings.TrimSpace(c.Prompt); prompt != "" {
+	if prompt != "" {
 		args = append(args, "--prompt", prompt)
 	}
 	if !c.UseGPU {

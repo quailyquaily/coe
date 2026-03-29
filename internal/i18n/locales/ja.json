@@ -1,0 +1,22 @@
+{
+  "recording_started_title": "音声入力を開始",
+  "recording_started_body": "話し始めてください。もう一度トリガーすると録音を停止します。",
+  "service_ready_title": "Coe サービスの準備ができました",
+  "service_ready_body": "バックグラウンドサービスは起動済みで、音声入力を受け付けられます。",
+  "service_ready_trigger_line": "トリガー: %s",
+  "no_speech_detected_title": "音声を検出できませんでした",
+  "no_speech_detected_fallback": "文字起こし結果が生成されませんでした。マイクがミュート、音量不足、ほぼ無音、または音声データ破損の可能性があります。",
+  "delivery_clipboard": "テキストをクリップボードにコピーしました。",
+  "delivery_fcitx": "テキストを Fcitx に返しました。",
+  "delivery_pasted": "テキストをフォーカス中のアプリにコピーして貼り付けました。",
+  "delivery_no_action": "テキストは文字起こしされましたが、出力処理は完了しませんでした。",
+  "auto_paste_needs_attention": "自動貼り付けを確認してください。",
+  "correction_fallback": "補正に失敗したため、元の文字起こしに戻しました。",
+  "dictation_complete_title": "音声入力が完了しました",
+  "recording_failed_to_start_title": "録音を開始できませんでした",
+  "recording_failed_title": "録音に失敗しました",
+  "dictation_failed_title": "音声入力に失敗しました",
+  "warning_near_silent": "録音された音声はほぼ無音だったため、文字起こしをスキップしました。",
+  "warning_corrupt_audio": "録音された音声は飽和または破損しているようだったため、文字起こしをスキップしました。",
+  "warning_empty_transcript": "ASR が空の文字起こしを返したため、補正と出力をスキップしました。"
+}

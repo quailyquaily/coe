@@ -89,7 +89,7 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 			a.emitStateChanged(logger, status)
 			a.emitDictationError(logger, status.SessionID, message)
 			logger.Error("recording start failed", "error", err, "source", source)
-			a.emitNotification(logger, notificationForFailure("Recording failed to start", err))
+			a.emitNotification(logger, a.notificationForFailure(failureRecordingStart, err))
 			return runtimeCommandResponse{Err: err}
 		}
 
@@ -122,7 +122,7 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 				stopAttrs = append(stopAttrs, "stderr", result.Stderr)
 			}
 			logger.Error("recording stop failed", stopAttrs...)
-			a.emitNotification(logger, notificationForFailure("Recording failed", err))
+			a.emitNotification(logger, a.notificationForFailure(failureRecordingStop, err))
 			return runtimeCommandResponse{Err: err}
 		}
 		if err != nil {
@@ -155,7 +155,7 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 			a.emitStateChanged(logger, status)
 			a.emitDictationError(logger, status.SessionID, err.Error())
 			logger.Error("pipeline processing failed", "error", err, "source", effectiveSource)
-			a.emitNotification(logger, notificationForFailure("Dictation failed", err))
+			a.emitNotification(logger, a.notificationForFailure(failureDictation, err))
 			return runtimeCommandResponse{Err: err}
 		}
 

@@ -1,0 +1,22 @@
+{
+  "recording_started_title": "Dictation started",
+  "recording_started_body": "Speak now, then trigger again to stop recording.",
+  "service_ready_title": "Coe service ready",
+  "service_ready_body": "Background service is running and ready for dictation.",
+  "service_ready_trigger_line": "Trigger: %s",
+  "no_speech_detected_title": "No speech detected",
+  "no_speech_detected_fallback": "No transcript was produced. The microphone input may be muted, too quiet, near-silent, or corrupted.",
+  "delivery_clipboard": "Text copied to the clipboard.",
+  "delivery_fcitx": "Text sent back through Fcitx.",
+  "delivery_pasted": "Text copied and pasted into the focused app.",
+  "delivery_no_action": "Text was transcribed, but no delivery action completed.",
+  "auto_paste_needs_attention": "Auto-paste needs attention.",
+  "correction_fallback": "Correction fell back to the raw transcript.",
+  "dictation_complete_title": "Dictation complete",
+  "recording_failed_to_start_title": "Recording failed to start",
+  "recording_failed_title": "Recording failed",
+  "dictation_failed_title": "Dictation failed",
+  "warning_near_silent": "Captured audio was near-silent, so transcription was skipped.",
+  "warning_corrupt_audio": "Captured audio looked saturated or corrupted, so transcription was skipped.",
+  "warning_empty_transcript": "ASR returned empty text, so correction and output were skipped."
+}

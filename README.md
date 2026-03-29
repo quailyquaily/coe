@@ -208,7 +208,8 @@ Notes:
 
 - `binary` defaults to `whisper-cli`
 - `model_path` is required for `whisper.cpp`
-- `prompt` is passed through as the initial prompt
+- `prompt` is rendered as a Go `text/template` before being sent as the initial prompt
+- `prompt_file` lets you keep that template in a separate file; relative paths are resolved from `config.yaml`
 - `threads` defaults to `GOMAXPROCS`
 - `use_gpu: false` adds `--no-gpu`
 
@@ -245,6 +246,8 @@ Notes:
 - environment field: `OPENAI_API_KEY`
 
 If you want to use the OpenAI Responses API instead, set `llm.endpoint_type` to `responses`.
+`llm.prompt` is also rendered as a Go `text/template` before it is used as correction instructions.
+`llm.prompt_file` works the same way and is preferred when you want the template outside YAML.
 
 ### Audio
 
@@ -263,8 +266,10 @@ If you want to use the OpenAI Responses API instead, set `llm.endpoint_type` to 
 ### Notifications
 
 - `enable_system: true`
-- `show_text_preview: false`
+- `notify_on_complete: false`
 - `notify_on_recording_start: false`
+
+If `notify_on_complete` is enabled, the completion notification includes the corrected text.
 
 ### Runtime
 
