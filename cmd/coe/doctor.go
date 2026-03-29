@@ -33,12 +33,14 @@ type doctorServiceStatus struct {
 }
 
 type doctorDictationStatus struct {
-	Reachable  bool
-	State      string
-	SessionID  string
-	Detail     string
-	TriggerKey string
-	Err        error
+	Reachable        bool
+	State            string
+	SessionID        string
+	Detail           string
+	TriggerKey       string
+	CurrentSceneID   string
+	CurrentSceneName string
+	Err              error
 }
 
 type doctorFocusHelperStatus struct {
@@ -131,6 +133,12 @@ func buildDoctorChecks(
 			OK:      dictationStatus.Reachable,
 			Detail:  dictationStatusDetail(dictationStatus),
 			Problem: "Coe D-Bus service is not reachable",
+		},
+		{
+			Name:    "Current scene",
+			OK:      dictationStatus.Reachable && strings.TrimSpace(dictationStatus.CurrentSceneID) != "",
+			Detail:  fmt.Sprintf("scene=%s; display_name=%s", nonEmpty(dictationStatus.CurrentSceneID, "missing"), nonEmpty(dictationStatus.CurrentSceneName, "missing")),
+			Problem: "the Coe daemon did not report a current scene",
 		},
 		{
 			Name:    "Audio capture",
@@ -451,7 +459,14 @@ func dictationStatusDetail(status doctorDictationStatus) string {
 	if status.Err != nil {
 		return status.Err.Error()
 	}
-	return fmt.Sprintf("service=%s; state=%s; session_id=%s; trigger_key=%s", dbusipc.DictationServiceName, nonEmpty(status.State, "unknown"), nonEmpty(status.SessionID, "none"), nonEmpty(status.TriggerKey, "missing"))
+	return fmt.Sprintf(
+		"service=%s; state=%s; session_id=%s; trigger_key=%s; scene=%s",
+		dbusipc.DictationServiceName,
+		nonEmpty(status.State, "unknown"),
+		nonEmpty(status.SessionID, "none"),
+		nonEmpty(status.TriggerKey, "missing"),
+		nonEmpty(status.CurrentSceneID, "missing"),
+	)
 }
 
 func focusHelperDetail(status doctorFocusHelperStatus) string {
@@ -528,6 +543,9 @@ func probeDictationDBus(ctx context.Context) doctorDictationStatus {
 	}
 	if err := obj.CallWithContext(ctx, dbusipc.DictationInterface+".TriggerKey", 0).Store(&status.TriggerKey); err != nil {
 		return doctorDictationStatus{Err: fmt.Errorf("call %s.TriggerKey failed: %w", dbusipc.DictationInterface, err)}
+	}
+	if err := obj.CallWithContext(ctx, dbusipc.DictationInterface+".CurrentScene", 0).Store(&status.CurrentSceneID, &status.CurrentSceneName); err != nil {
+		return doctorDictationStatus{Err: fmt.Errorf("call %s.CurrentScene failed: %w", dbusipc.DictationInterface, err)}
 	}
 	status.Reachable = true
 	return status

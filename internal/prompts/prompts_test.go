@@ -81,3 +81,46 @@ func TestResolveLLMCorrectionOverrideTemplateFile(t *testing.T) {
 		t.Fatalf("ResolveLLMCorrection() = %q", got)
 	}
 }
+
+func TestResolveLLMCorrectionTerminalDefault(t *testing.T) {
+	got, err := ResolveLLMCorrectionTerminal("", "", LLMTemplateData{
+		Provider:     "openai",
+		Model:        "gpt-4o-mini",
+		EndpointType: "responses",
+	})
+	if err != nil {
+		t.Fatalf("ResolveLLMCorrectionTerminal() error = %v", err)
+	}
+	for _, fragment := range []string{
+		"terminal / shell usage",
+		"commands, flags, paths, filenames",
+		"drop filler / discourse particles",
+		`"sudo systemctl restart coe.service"`,
+		`"帮我跑一下 ls dash la" -> "帮我跑一下 ls -la"`,
+		`"用 grep 查一下 error log" -> "用 grep 查一下 error log"`,
+	} {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("terminal correction prompt missing %q", fragment)
+		}
+	}
+}
+
+func TestResolveSceneRouterDefault(t *testing.T) {
+	got, err := ResolveSceneRouter(LLMTemplateData{
+		Provider:     "openai",
+		Model:        "gpt-4o-mini",
+		EndpointType: "responses",
+	})
+	if err != nil {
+		t.Fatalf("ResolveSceneRouter() error = %v", err)
+	}
+	for _, fragment := range []string{
+		"route a scene-switch command from JSON input",
+		`{"intent":"switch_scene","target_scene":"terminal","matched_alias":"终端"}`,
+		`{"intent":"no_match"}`,
+	} {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("scene router prompt missing %q", fragment)
+		}
+	}
+}

@@ -139,6 +139,16 @@ detect_install_mode() {
   echo "gnome"
 }
 
+has_gnome_desktop() {
+  if [[ "${INSTALL_MODE_OVERRIDE}" == "gnome" ]]; then
+    return 0
+  fi
+
+  local desktop="${XDG_CURRENT_DESKTOP:-}:${XDG_SESSION_DESKTOP:-}:${DESKTOP_SESSION:-}"
+  desktop="${desktop,,}"
+  [[ "${desktop}" == *gnome* ]]
+}
+
 prepare_local_bundle_root() {
   local tmp_dir="$1"
   local source_path
@@ -344,6 +354,10 @@ fi
 
 VERSION="local-build"
 INSTALL_MODE="$(detect_install_mode)"
+INSTALL_GNOME_EXTENSION=0
+if has_gnome_desktop; then
+  INSTALL_GNOME_EXTENSION=1
+fi
 
 require_cmd tar
 require_cmd install
@@ -385,11 +399,14 @@ fi
 
 install -m 0644 "${UNIT_SRC}" "${UNIT_PATH}"
 
+if [[ "${INSTALL_GNOME_EXTENSION}" == "1" ]]; then
+  install_gnome_assets "${GNOME_FOCUS_HELPER_SRC}"
+fi
+
 if [[ "${INSTALL_MODE}" == "fcitx" ]]; then
   install_fcitx_assets "${FCITX_RUNTIME_ROOT}"
   "${BIN_DIR}/coe" config set runtime.mode fcitx >/dev/null
 else
-  install_gnome_assets "${GNOME_FOCUS_HELPER_SRC}"
   "${BIN_DIR}/coe" config set runtime.mode desktop >/dev/null
 fi
 
@@ -411,11 +428,12 @@ echo "- binary: ${BIN_DIR}/coe"
 echo "- config: ${CONFIG_DIR}/config.yaml"
 echo "- env: ${ENV_PATH}"
 echo "- systemd unit: ${UNIT_PATH}"
+if [[ "${INSTALL_GNOME_EXTENSION}" == "1" ]]; then
+  echo "- GNOME extension: ${GNOME_FOCUS_HELPER_DST}"
+fi
 if [[ "${INSTALL_MODE}" == "fcitx" ]]; then
   echo "- fcitx addon config: /usr/share/fcitx5/addon/coe.conf"
   echo "- fcitx module: installed into /usr/lib/*/fcitx5/libcoefcitx.so"
-else
-  echo "- GNOME extension: ${GNOME_FOCUS_HELPER_DST}"
 fi
 
 echo
@@ -447,6 +465,9 @@ echo "1. If you use cloud ASR or LLM providers, put the required API key(s) in $
 if [[ "${INSTALL_MODE}" == "fcitx" ]]; then
   echo "2. Open any app with an active Fcitx input context and press the configured hotkey"
   echo "3. If the module still does not load, check ${FCITX_LOG_PATH}"
+  if [[ "${INSTALL_GNOME_EXTENSION}" == "1" ]]; then
+    echo "4. Log out and log back in once so GNOME Shell picks up the Coe extension cleanly"
+  fi
 else
   echo "2. Log out and log back in once so GNOME Shell and your user session both pick up the new extension and service cleanly"
   echo "3. Check logs: journalctl --user -u coe.service -f"

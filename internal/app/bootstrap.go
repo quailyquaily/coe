@@ -19,6 +19,8 @@ import (
 	"coe/internal/output"
 	"coe/internal/pipeline"
 	"coe/internal/platform/gnome"
+	"coe/internal/prompts"
+	"coe/internal/scene"
 )
 
 func New(ctx context.Context, cfg config.Config) (*App, error) {
@@ -43,7 +45,26 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	corrector, err := llm.NewCorrector(cfg.LLM)
+	localizer := i18n.NewFromEnvironment()
+	sceneState, err := scene.NewState(scene.DefaultCatalog(), scene.IDGeneral)
+	if err != nil {
+		return nil, err
+	}
+	generalCorrector, err := llm.NewCorrectorWithTemplate(cfg.LLM, prompts.TemplateLLMCorrectionGeneral)
+	if err != nil {
+		return nil, err
+	}
+	terminalLLM := cfg.LLM
+	terminalLLM.Prompt = ""
+	terminalLLM.PromptFile = ""
+	terminalCorrector, err := llm.NewCorrectorWithTemplate(terminalLLM, prompts.TemplateLLMCorrectionTerminal)
+	if err != nil {
+		return nil, err
+	}
+	routerLLM := cfg.LLM
+	routerLLM.Prompt = ""
+	routerLLM.PromptFile = ""
+	sceneRouter, err := llm.NewCorrectorWithTemplate(routerLLM, prompts.TemplateSceneRouter)
 	if err != nil {
 		return nil, err
 	}
@@ -138,15 +159,21 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		ExternalHotkey:    external,
 		ControlSocketPath: controlSocketPath,
 		Notifier:          notificationService,
-		Localizer:         i18n.NewFromEnvironment(),
+		Localizer:         localizer,
 		StartupWarnings:   startupWarnings,
-		resourceClosers:   resourceClosers,
-		dictationState:    newDictationState(),
-		runtimeCommands:   make(chan runtimeCommand, 16),
+		SceneState:        sceneState,
+		SceneCorrectors: map[string]llm.Corrector{
+			scene.IDGeneral:  generalCorrector,
+			scene.IDTerminal: terminalCorrector,
+		},
+		SceneRouter:     sceneRouter,
+		resourceClosers: resourceClosers,
+		dictationState:  newDictationState(),
+		runtimeCommands: make(chan runtimeCommand, 16),
 		Pipeline: pipeline.Orchestrator{
 			Recorder:  recorder,
 			ASR:       asrClient,
-			Corrector: corrector,
+			Corrector: generalCorrector,
 			Output: &output.Coordinator{
 				ClipboardPlan:         describeFeature(string(caps.Clipboard.Mode), caps.Clipboard.Detail),
 				PastePlan:             describeFeature(string(caps.Paste.Mode), caps.Paste.Detail),

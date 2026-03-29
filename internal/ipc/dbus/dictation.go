@@ -26,6 +26,9 @@ type Handler interface {
 	Stop(context.Context) error
 	Status(context.Context) Status
 	TriggerKey(context.Context) string
+	CurrentScene(context.Context) (string, string)
+	ListScenes(context.Context) string
+	SwitchScene(context.Context, string) error
 }
 
 type Service struct {
@@ -79,6 +82,25 @@ func ConnectSession(handler Handler) (*Service, error) {
 							{Name: "trigger_key", Type: "s", Direction: "out"},
 						},
 					},
+					{
+						Name: "CurrentScene",
+						Args: []introspect.Arg{
+							{Name: "scene_id", Type: "s", Direction: "out"},
+							{Name: "display_name", Type: "s", Direction: "out"},
+						},
+					},
+					{
+						Name: "ListScenes",
+						Args: []introspect.Arg{
+							{Name: "scenes_json", Type: "s", Direction: "out"},
+						},
+					},
+					{
+						Name: "SwitchScene",
+						Args: []introspect.Arg{
+							{Name: "scene_id", Type: "s", Direction: "in"},
+						},
+					},
 				},
 				Signals: []introspect.Signal{
 					{
@@ -101,6 +123,13 @@ func ConnectSession(handler Handler) (*Service, error) {
 						Args: []introspect.Arg{
 							{Name: "session_id", Type: "s"},
 							{Name: "message", Type: "s"},
+						},
+					},
+					{
+						Name: "SceneChanged",
+						Args: []introspect.Arg{
+							{Name: "scene_id", Type: "s"},
+							{Name: "display_name", Type: "s"},
 						},
 					},
 				},
@@ -141,6 +170,13 @@ func (s *Service) EmitError(sessionID, message string) error {
 	return s.conn.Emit(DictationObjectPath, DictationInterface+".ErrorRaised", sessionID, message)
 }
 
+func (s *Service) EmitSceneChanged(sceneID, displayName string) error {
+	if s == nil || s.conn == nil {
+		return nil
+	}
+	return s.conn.Emit(DictationObjectPath, DictationInterface+".SceneChanged", sceneID, displayName)
+}
+
 type dictationObject struct {
 	handler Handler
 }
@@ -173,4 +209,20 @@ func (o *dictationObject) Status() (string, string, string, *godbus.Error) {
 
 func (o *dictationObject) TriggerKey() (string, *godbus.Error) {
 	return o.handler.TriggerKey(context.Background()), nil
+}
+
+func (o *dictationObject) CurrentScene() (string, string, *godbus.Error) {
+	sceneID, displayName := o.handler.CurrentScene(context.Background())
+	return sceneID, displayName, nil
+}
+
+func (o *dictationObject) ListScenes() (string, *godbus.Error) {
+	return o.handler.ListScenes(context.Background()), nil
+}
+
+func (o *dictationObject) SwitchScene(sceneID string) *godbus.Error {
+	if err := o.handler.SwitchScene(context.Background(), sceneID); err != nil {
+		return godbus.MakeFailedError(err)
+	}
+	return nil
 }

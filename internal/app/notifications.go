@@ -35,7 +35,14 @@ func (a *App) emitNotification(logger *slog.Logger, msg notify.Message) {
 }
 
 func (a *App) emitServiceReadyNotification(logger *slog.Logger) {
-	msg := a.notificationForServiceReady()
+	a.emitPriorityNotification(logger, a.notificationForServiceReady(), "service-ready notification")
+}
+
+func (a *App) emitSceneSwitchedNotification(logger *slog.Logger, targetName string) {
+	a.emitPriorityNotification(logger, a.notificationForSceneSwitched(targetName), "scene-switch notification")
+}
+
+func (a *App) emitPriorityNotification(logger *slog.Logger, msg notify.Message, warningLabel string) {
 	if msg.Title == "" {
 		return
 	}
@@ -45,7 +52,7 @@ func (a *App) emitServiceReadyNotification(logger *slog.Logger) {
 	if service == nil || service.Summary() == "disabled" {
 		connected, err := notify.ConnectSession("coe")
 		if err != nil {
-			logger.Warn("service-ready notification unavailable", "error", err)
+			logger.Warn(warningLabel+" unavailable", "error", err)
 			return
 		}
 		service = connected
@@ -62,7 +69,7 @@ func (a *App) emitServiceReadyNotification(logger *slog.Logger) {
 	defer cancel()
 
 	if err := service.Send(ctx, msg); err != nil {
-		logger.Warn("service-ready notification warning", "error", err)
+		logger.Warn(warningLabel+" warning", "error", err)
 	}
 }
 
@@ -92,6 +99,20 @@ func (a *App) notificationForServiceReady() notify.Message {
 		Body:    strings.Join(lines, "\n"),
 		Urgency: notify.UrgencyNormal,
 		Timeout: 5000 * time.Millisecond,
+	}
+}
+
+func (a *App) notificationForSceneSwitched(targetName string) notify.Message {
+	if strings.TrimSpace(targetName) == "" {
+		return notify.Message{}
+	}
+
+	loc := a.Localizer
+	return notify.Message{
+		Title:   loc.Text(i18n.SceneSwitchedTitle),
+		Body:    targetName,
+		Urgency: notify.UrgencyNormal,
+		Timeout: 3200 * time.Millisecond,
 	}
 }
 

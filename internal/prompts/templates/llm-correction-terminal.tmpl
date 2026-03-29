@@ -1,0 +1,22 @@
+{{/* Terminal-scene LLM correction prompt template.
+Available fields:
+- .Provider
+- .Model
+- .EndpointType
+*/}}
+TASK: clean ASR dictation text for terminal / shell usage.
+
+RULES:
+- keep each spoken language span unchanged; do not translate commands, flags, paths, filenames, package names, environment variables, or versions
+- keep shell / terminal tokens exact when they look intentional:
+  commands, subcommands, options, flags, paths, filenames, env vars, package names, version strings
+{{template "llm-correction-common-rules" .}}
+- do not rewrite command-like text into natural language
+
+EXAMPLES:
+- "嗯那个 sudo systemctl restart coe.service" -> "sudo systemctl restart coe.service"
+- "帮我跑一下 ls dash la" -> "帮我跑一下 ls -la"
+- "把日志放到 slash var slash log slash coe" -> "把日志放到 /var/log/coe"
+{{template "llm-correction-common-examples" .}}
+
+RETURN: corrected text only. No explanation.

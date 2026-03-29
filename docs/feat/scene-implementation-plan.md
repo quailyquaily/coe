@@ -115,6 +115,9 @@ v1 的价值在于：
 - `internal/prompts/prompts.go`
 - `internal/i18n/locales/*.json`
 - `cmd/coe/doctor.go`
+- `packaging/gnome-shell-extension/coe-focus-helper@mistermorph.com/extension.js`
+- `packaging/gnome-shell-extension/coe-focus-helper@mistermorph.com/metadata.json`
+- `scripts/install.sh`
 
 ## 5. 目标架构
 
@@ -231,6 +234,8 @@ v1 内置：
 更稳妥的 v1 方案：
 
 - 新增 method：`CurrentScene() -> (scene_id, display_name)`
+- 新增 method：`ListScenes() -> (scenes_json)`
+- 新增 method：`SwitchScene(scene_id)`
 - 新增 signal：`SceneChanged(scene_id, display_name)`
 - 同时在 `Status().detail` 中追加 `scene=<id>`，便于旧调用方最小感知
 
@@ -256,8 +261,10 @@ v1 内置：
 通过标准：
 
 1. `gdbus call` 能读取 `CurrentScene()`
-2. daemon 切换场景时会发 `SceneChanged`
-3. `coe doctor` 能展示当前场景
+2. `gdbus call` 能读取 `ListScenes()`
+3. `gdbus call` 能通过 `SwitchScene terminal` 切场景
+4. daemon 切换场景时会发 `SceneChanged`
+5. `coe doctor` 能展示当前场景
 
 建议命令：
 
@@ -268,7 +275,93 @@ gdbus call --session \
   --method com.mistermorph.Coe.Dictation1.CurrentScene
 ```
 
-## 8. Phase 3: 场景切换通知
+```bash
+gdbus call --session \
+  --dest com.mistermorph.Coe \
+  --object-path /com/mistermorph/Coe \
+  --method com.mistermorph.Coe.Dictation1.ListScenes
+```
+
+```bash
+gdbus call --session \
+  --dest com.mistermorph.Coe \
+  --object-path /com/mistermorph/Coe \
+  --method com.mistermorph.Coe.Dictation1.SwitchScene terminal
+```
+
+## 8. Phase 2.5: GNOME 扩展菜单与安装
+
+目标：
+
+- 让 GNOME 用户除了语音命令外，还有一条显式的桌面入口来查看/切换场景与重启 `Coe`
+- 让安装脚本在 GNOME 环境下总是把扩展部署好，而不是只在 `desktop` 模式时安装
+
+### 8.1 扩展职责
+
+现有 GNOME Shell extension 已经承担：
+
+- focus-aware paste 所需的 `wm_class` D-Bus 暴露
+
+现在把它扩成一个更完整的 shell helper：
+
+- 继续暴露 focus helper D-Bus 接口
+- 在顶栏右上角加一个状态图标
+- 图标菜单里至少有：
+  - `Scenes >`
+  - `Restart Coe`
+
+### 8.2 菜单数据来源
+
+不建议把场景列表硬编码在 extension 里。
+
+推荐做法：
+
+- extension 启动或菜单展开时调用 `CurrentScene()` 与 `ListScenes()`
+- `Scenes` 二级菜单按 `ListScenes()` 的返回值动态生成
+- 当前场景用勾选或 dot ornament 表示
+- daemon 发出 `SceneChanged` 后，extension 立即刷新菜单状态
+
+### 8.3 切场景动作
+
+点击某个场景项后：
+
+- extension 调用 `SwitchScene(scene_id)`
+- daemon 负责更新场景状态
+- daemon 负责继续沿用现有“Scene switched”通知
+- extension 只做 UI 刷新，不复制场景切换逻辑
+
+### 8.4 重启动作
+
+`Restart Coe` 的实现可以放在 extension 内部。
+
+v1 推荐：
+
+- extension 直接调用 `systemctl --user restart coe.service`
+
+原因：
+
+- 这是明显的桌面控制动作
+- 不需要再把“重启 service”封进 Coe daemon 自己的 D-Bus 里
+
+### 8.5 安装脚本
+
+`scripts/install.sh` 的行为要改成：
+
+- 如果当前环境是 GNOME，则默认安装 GNOME Shell extension
+- 这个判断独立于 `runtime.mode`
+- 也就是说即使最后跑的是 `fcitx` 模式，只要当前桌面是 GNOME，也应安装扩展
+
+### 8.6 验证方式
+
+通过标准：
+
+1. 在 GNOME 环境下运行安装脚本后，extension 被复制到用户扩展目录
+2. 顶栏能看到 Coe 图标
+3. `Scenes` 子菜单能列出 daemon 当前提供的全部场景
+4. 点击场景项后，daemon 当前场景立即变化
+5. 点击 `Restart Coe` 后，`coe.service` 被重启，并看到现有 ready 通知
+
+## 9. Phase 3: 场景切换通知
 
 目标：
 
@@ -311,7 +404,7 @@ gdbus call --session \
 2. 通知 body 随 locale 变化
 3. 普通“完成通知”开关不影响场景切换通知
 
-## 9. Phase 4: 场景化 correction prompt
+## 10. Phase 4: 场景化 correction prompt
 
 目标：
 
@@ -376,7 +469,7 @@ v1 不值得先走这条路。
 2. `terminal` 场景下，`grep`, `systemctl`, `--user`, `/var/log` 这类 token 保真明显更高
 3. 混合语言 token 仍不被翻译
 
-## 10. Phase 5: 切换门控
+## 11. Phase 5: 切换门控
 
 目标：
 
@@ -426,7 +519,7 @@ v1 直接硬编码在 `internal/scene/gate.go`：
 2. 中英日固定短语能命中
 3. 只说 `terminal` 不应命中，必须是“切换场景”类命令
 
-## 11. Phase 6: 场景路由 LLM 请求
+## 12. Phase 6: 场景路由 LLM 请求
 
 目标：
 
@@ -488,7 +581,7 @@ type RouteResult struct {
 3. `シーンをターミナルに切り替え` 能路由到 `terminal`
 4. 路由返回非法 JSON 时会回退成普通听写
 
-## 12. Phase 7: runtime 接线
+## 13. Phase 7: runtime 接线
 
 目标：
 
@@ -530,9 +623,9 @@ v1 仍按“场景切换成功”处理：
 
 这条逻辑不要在 runtime 里额外切分文本，而是由 route prompt 直接把它归入“场景切换”。
 
-## 13. Phase 8: 测试与验证
+## 14. Phase 8: 测试与验证
 
-## 13.1 单元测试
+## 14.1 单元测试
 
 建议新增测试覆盖：
 
@@ -552,7 +645,7 @@ v1 仍按“场景切换成功”处理：
 - 路由失败时回退到普通听写
 - D-Bus 能读到当前场景
 
-## 13.2 手工验证
+## 14.2 手工验证
 
 建议最少做这几条：
 
@@ -565,19 +658,20 @@ v1 仍按“场景切换成功”处理：
 6. 观察 correction 结果是否保留 `grep` 和 `error log`
 7. 重启 daemon 后确认场景回到 `general`
 
-## 14. 推荐落地顺序
+## 15. 推荐落地顺序
 
 建议按这个顺序做：
 
 1. `internal/scene` 目录与内置 catalog
 2. `App` 场景状态
-3. D-Bus `CurrentScene()` 与 `SceneChanged`
-4. 场景切换通知与 i18n
-5. `general` / `terminal` correction prompt 分离
-6. 门控
-7. 场景路由 LLM 请求
-8. runtime 接线
-9. doctor 展示与回归测试
+3. D-Bus `CurrentScene()` / `ListScenes()` / `SwitchScene()` 与 `SceneChanged`
+4. GNOME extension 菜单与安装脚本
+5. 场景切换通知与 i18n
+6. `general` / `terminal` correction prompt 分离
+7. 门控
+8. 场景路由 LLM 请求
+9. runtime 接线
+10. doctor 展示与回归测试
 
 这样做的好处是：
 
@@ -585,7 +679,7 @@ v1 仍按“场景切换成功”处理：
 - 可以先验证状态与可观测性
 - 最后才把控制逻辑插进主链，降低回归风险
 
-## 15. 暂不建议做的事
+## 16. 暂不建议做的事
 
 以下内容即使实现时觉得“顺手”，v1 也先不要带进去：
 

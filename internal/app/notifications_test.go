@@ -89,6 +89,22 @@ func TestNotificationForServiceReadyLocalized(t *testing.T) {
 	}
 }
 
+func TestNotificationForSceneSwitchedLocalized(t *testing.T) {
+	t.Parallel()
+
+	instance := &App{
+		Localizer: i18n.NewForLocale("ja_JP.UTF-8"),
+	}
+
+	msg := instance.notificationForSceneSwitched("ターミナル")
+	if msg.Title != "シーンを切り替えました" {
+		t.Fatalf("unexpected title %q", msg.Title)
+	}
+	if msg.Body != "ターミナル" {
+		t.Fatalf("unexpected body %q", msg.Body)
+	}
+}
+
 func TestNotificationForProcessingWithoutTranscript(t *testing.T) {
 	t.Parallel()
 

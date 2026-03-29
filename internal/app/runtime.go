@@ -40,6 +40,7 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 		"mode", a.Config.Runtime.Mode,
 		"hotkey", a.Hotkey.Plan(),
 		"pipeline", a.Pipeline.Summary(),
+		"scene", a.currentScene().ID,
 		"notifications", blankIfEmpty(a.Notifier.Summary(), "disabled"),
 		"dictation_dbus", a.DictationBus != nil,
 		"paste_shortcut", output.NormalizePasteShortcut(a.Config.Output.PasteShortcut),
@@ -145,11 +146,12 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 		logger.Info("recording stopped", recordingAttrs...)
 		logger.Debug("capture processing started", "bytes", result.ByteCount, "source", effectiveSource)
 
+		startedAt := time.Now()
 		processor := a.Pipeline
 		if effectiveSource == "fcitx-module" {
 			processor.Output = nil
 		}
-		processed, err := processor.ProcessCapture(ctx, result)
+		processed, err := processor.TranscribeCapture(ctx, result)
 		if err != nil {
 			status := a.dictationState.Error(err.Error())
 			a.emitStateChanged(logger, status)
@@ -158,10 +160,49 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 			a.emitNotification(logger, a.notificationForFailure(failureDictation, err))
 			return runtimeCommandResponse{Err: err}
 		}
+		if strings.TrimSpace(processed.Transcript) != "" {
+			activeScene := a.currentScene()
+			corrector := a.correctorForScene(activeScene.ID)
+			processed = processor.ApplyCorrection(ctx, processed, corrector)
+
+			sceneOutcome, sceneErr := a.attemptSceneCommand(ctx, processed.Corrected)
+			if sceneErr != nil {
+				logger.Warn("scene routing warning", "error", sceneErr)
+			}
+			if sceneOutcome.Handled {
+				processed.TotalDuration = time.Since(startedAt)
+				status := a.dictationState.Completed("scene switched")
+				a.emitStateChanged(logger, status)
+				if sceneOutcome.Changed {
+					a.emitSceneChanged(logger, sceneOutcome.Scene)
+				}
+				logger.Info(
+					"scene switched",
+					"scene", sceneOutcome.Scene.ID,
+					"display_name", a.sceneDisplayName(sceneOutcome.Scene),
+					"matched_alias", blankIfEmpty(sceneOutcome.MatchedAlias, "none"),
+					"source", effectiveSource,
+				)
+				a.emitSceneSwitchedNotification(logger, a.sceneDisplayName(sceneOutcome.Scene))
+				return runtimeCommandResponse{Changed: true}
+			}
+
+			processed, err = processor.DeliverResult(ctx, processed)
+			if err != nil {
+				status := a.dictationState.Error(err.Error())
+				a.emitStateChanged(logger, status)
+				a.emitDictationError(logger, status.SessionID, err.Error())
+				logger.Error("pipeline processing failed", "error", err, "source", effectiveSource)
+				a.emitNotification(logger, a.notificationForFailure(failureDictation, err))
+				return runtimeCommandResponse{Err: err}
+			}
+		}
+		processed.TotalDuration = time.Since(startedAt)
 
 		pipelineAttrs := []any{
 			"transcript", processed.Transcript,
 			"corrected", processed.Corrected,
+			"scene", a.currentScene().ID,
 			"asr_duration", processed.ASRDuration.Round(time.Millisecond),
 			"correction_duration", processed.CorrectionDuration.Round(time.Millisecond),
 			"output_duration", processed.OutputDuration.Round(time.Millisecond),

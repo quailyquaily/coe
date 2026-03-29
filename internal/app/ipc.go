@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 	"coe/internal/config"
 	"coe/internal/control"
 	dbusipc "coe/internal/ipc/dbus"
+	"coe/internal/scene"
 )
 
 func (a *App) handleControl(_ context.Context, req control.Request) control.Response {
@@ -80,9 +82,9 @@ func (a *App) Stop(context.Context) error {
 
 func (a *App) Status(context.Context) dbusipc.Status {
 	if a.dictationState == nil {
-		return dbusipc.Status{State: "idle"}
+		return a.withSceneDetail(dbusipc.Status{State: "idle"})
 	}
-	return a.dictationState.Snapshot()
+	return a.withSceneDetail(a.dictationState.Snapshot())
 }
 
 func (a *App) TriggerKey(context.Context) string {
@@ -90,6 +92,24 @@ func (a *App) TriggerKey(context.Context) string {
 		return value
 	}
 	return config.Default().Hotkey.PreferredAccelerator
+}
+
+func (a *App) CurrentScene(context.Context) (string, string) {
+	current := a.currentScene()
+	return current.ID, a.sceneDisplayName(current)
+}
+
+func (a *App) ListScenes(context.Context) string {
+	payload, err := json.Marshal(scene.ListDisplayScenes(a.SceneState, a.Localizer))
+	if err != nil {
+		return "[]"
+	}
+	return string(payload)
+}
+
+func (a *App) SwitchScene(_ context.Context, sceneID string) error {
+	_, _, err := a.switchSceneByID(sceneID)
+	return err
 }
 
 func (a *App) triggerToggle() (bool, error) {
@@ -134,6 +154,7 @@ func (a *App) triggerActive() bool {
 }
 
 func (a *App) emitStateChanged(logger *slog.Logger, status dbusipc.Status) {
+	status = a.withSceneDetail(status)
 	if a.DictationBus == nil {
 		return
 	}
@@ -158,6 +179,34 @@ func (a *App) emitDictationError(logger *slog.Logger, sessionID, message string)
 	if err := a.DictationBus.EmitError(sessionID, message); err != nil {
 		logger.Warn("dictation D-Bus error emit failed", "error", err)
 	}
+}
+
+func (a *App) emitSceneChanged(logger *slog.Logger, currentScene scene.Scene) {
+	if a.DictationBus == nil {
+		return
+	}
+	if err := a.DictationBus.EmitSceneChanged(currentScene.ID, a.sceneDisplayName(currentScene)); err != nil {
+		logger.Warn("dictation D-Bus scene emit failed", "error", err)
+	}
+}
+
+func (a *App) withSceneDetail(status dbusipc.Status) dbusipc.Status {
+	current := a.currentScene()
+	if current.ID == "" {
+		return status
+	}
+
+	detail := strings.TrimSpace(status.Detail)
+	sceneDetail := "scene=" + current.ID
+	switch {
+	case detail == "":
+		status.Detail = sceneDetail
+	case strings.Contains(detail, sceneDetail):
+		status.Detail = detail
+	default:
+		status.Detail = detail + "; " + sceneDetail
+	}
+	return status
 }
 
 func pickMessage(condition bool, yes, no string) string {

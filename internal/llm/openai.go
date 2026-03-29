@@ -19,14 +19,15 @@ const defaultOpenAIResponsesEndpoint = "https://api.openai.com/v1/responses"
 const defaultOpenAIAPIBase = "https://api.openai.com/v1"
 
 type OpenAICorrector struct {
-	Endpoint     string
-	EndpointType string
-	Model        string
-	APIKey       string
-	APIKeyEnv    string
-	Prompt       string
-	PromptFile   string
-	HTTPClient   *http.Client
+	Endpoint       string
+	EndpointType   string
+	Model          string
+	APIKey         string
+	APIKeyEnv      string
+	Prompt         string
+	PromptFile     string
+	PromptTemplate string
+	HTTPClient     *http.Client
 }
 
 func (c OpenAICorrector) Name() string {
@@ -45,7 +46,11 @@ func (c OpenAICorrector) Correct(ctx context.Context, input string) (Result, err
 	}
 
 	endpointType := normalizeEndpointType(c.EndpointType)
-	instructions, err := prompts.ResolveLLMCorrection(c.Prompt, c.PromptFile, prompts.LLMTemplateData{
+	templateName := strings.TrimSpace(c.PromptTemplate)
+	if templateName == "" {
+		templateName = prompts.TemplateLLMCorrection
+	}
+	instructions, err := prompts.ResolveNamed(templateName, c.Prompt, c.PromptFile, prompts.LLMTemplateData{
 		Provider:     "openai",
 		Model:        defaultCorrectorModel(c.Model),
 		EndpointType: endpointType,

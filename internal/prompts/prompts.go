@@ -12,8 +12,11 @@ import (
 )
 
 const (
-	templateASRDefault    = "asr-default.tmpl"
-	templateLLMCorrection = "llm-correction.tmpl"
+	TemplateASRDefault            = "asr-default.tmpl"
+	TemplateLLMCorrection         = "llm-correction.tmpl"
+	TemplateLLMCorrectionGeneral  = "llm-correction-general.tmpl"
+	TemplateLLMCorrectionTerminal = "llm-correction-terminal.tmpl"
+	TemplateSceneRouter           = "scene-router.tmpl"
 )
 
 type ASRTemplateData struct {
@@ -38,14 +41,26 @@ var (
 )
 
 func ResolveASR(override, overrideFile string, data ASRTemplateData) (string, error) {
-	return resolve(templateASRDefault, override, overrideFile, data)
+	return ResolveNamed(TemplateASRDefault, override, overrideFile, data)
 }
 
 func ResolveLLMCorrection(override, overrideFile string, data LLMTemplateData) (string, error) {
-	return resolve(templateLLMCorrection, override, overrideFile, data)
+	return ResolveNamed(TemplateLLMCorrection, override, overrideFile, data)
 }
 
-func resolve(defaultName, override, overrideFile string, data any) (string, error) {
+func ResolveLLMCorrectionGeneral(override, overrideFile string, data LLMTemplateData) (string, error) {
+	return ResolveNamed(TemplateLLMCorrectionGeneral, override, overrideFile, data)
+}
+
+func ResolveLLMCorrectionTerminal(override, overrideFile string, data LLMTemplateData) (string, error) {
+	return ResolveNamed(TemplateLLMCorrectionTerminal, override, overrideFile, data)
+}
+
+func ResolveSceneRouter(data LLMTemplateData) (string, error) {
+	return ResolveNamed(TemplateSceneRouter, "", "", data)
+}
+
+func ResolveNamed(defaultName, override, overrideFile string, data any) (string, error) {
 	if strings.TrimSpace(overrideFile) != "" {
 		return executeFile(overrideFile, data)
 	}

@@ -1,0 +1,24 @@
+{{/* Scene router prompt template.
+Available fields:
+- .Provider
+- .Model
+- .EndpointType
+*/}}
+TASK: route a scene-switch command from JSON input.
+
+INPUT:
+- current_scene: current scene id
+- available_scenes: valid scenes with id, display_name, aliases, description
+- utterance: corrected user utterance
+
+RULES:
+- decide whether the utterance is asking to switch scene
+- only target a scene id present in available_scenes
+- if the target scene is clear, ignore any trailing dictation after the switch command
+- if the target scene is unclear, return no_match
+
+OUTPUT JSON ONLY:
+- success: {"intent":"switch_scene","target_scene":"terminal","matched_alias":"终端"}
+- no match: {"intent":"no_match"}
+
+RETURN: JSON only. No markdown. No explanation.
