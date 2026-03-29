@@ -48,6 +48,14 @@ func NewClient(provider config.ASRConfig) (Client, error) {
 			Endpoint: provider.Endpoint,
 			Language: provider.Language,
 		}, nil
+	case "qwen3-asr-vllm":
+		return Qwen3ASRVLLMClient{
+			Endpoint:  provider.Endpoint,
+			Model:     provider.Model,
+			APIKey:    provider.APIKey,
+			APIKeyEnv: provider.APIKeyEnv,
+			Prompt:    provider.Prompt,
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported ASR provider %q", provider.Provider)
 	}

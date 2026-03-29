@@ -36,9 +36,13 @@ asr:
   # Use `openai` for cloud ASR.
   # Use `sensevoice` for an external SenseVoice FastAPI service.
   # Use `whispercpp` for local ASR through `whisper-cli`.
+  # Use `qwen3-asr-vllm` for OpenAI-compatible vLLM chat completions
+  # with inline base64 WAV audio.
   provider: openai
   # Full HTTP endpoint for HTTP-based ASR providers.
   # For `sensevoice`, leaving this empty falls back to http://127.0.0.1:50000/api/v1/asr.
+  # For `qwen3-asr-vllm`, leaving this empty falls back to
+  # http://127.0.0.1:8000/v1/chat/completions.
   endpoint: https://api.openai.com/v1/audio/transcriptions
   # ASR model name.
   model: gpt-4o-mini-transcribe
@@ -151,6 +155,17 @@ notifications:
 #   model_path: ""
 #   threads: 0
 #   use_gpu: false
+#
+# Example qwen3-asr-vllm profile:
+#
+# asr:
+#   provider: qwen3-asr-vllm
+#   endpoint: http://127.0.0.1:8000/v1/chat/completions
+#   model: Qwen/Qwen3-ASR-1.7B
+#   language: ""
+#   prompt: ""
+#   api_key: ""
+#   api_key_env: OPENAI_API_KEY
 #
 # Example focus-aware paste on GNOME:
 #
