@@ -1,10 +1,10 @@
 pkgname=coe-git
 pkgver=r44.3754f8f
-pkgrel=2
+pkgrel=3
 pkgdesc='Voice input tool for Linux desktops with Fcitx5 and GNOME integration'
 arch=('x86_64' 'aarch64')
 url='https://github.com/quailyquaily/coe'
-license=('custom:unlicensed')
+license=('Apache-2.0')
 depends=(
   'dbus'
   'fcitx5'
@@ -75,6 +75,7 @@ package() {
   install -Dm755 coe "${pkgdir}/usr/bin/coe"
   install -Dm644 config.example.yaml "${pkgdir}/usr/share/doc/${pkgname}/config.example.yaml"
   install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 
   install -Dm644 packaging/systemd/coe.service "${pkgdir}/usr/lib/systemd/user/coe.service"
   sed -i 's#%h/.local/bin/coe#/usr/bin/coe#' "${pkgdir}/usr/lib/systemd/user/coe.service"
