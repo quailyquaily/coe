@@ -1,0 +1,87 @@
+pkgname=coe-git
+pkgver=r44.3754f8f
+pkgrel=2
+pkgdesc='Voice input tool for Linux desktops with Fcitx5 and GNOME integration'
+arch=('x86_64' 'aarch64')
+url='https://github.com/quailyquaily/coe'
+license=('custom:unlicensed')
+depends=(
+  'dbus'
+  'fcitx5'
+  'glibc'
+  'libnotify'
+  'pipewire'
+)
+makedepends=(
+  'cmake'
+  'git'
+  'go'
+  'pkgconf'
+)
+optdepends=(
+  'gnome-shell: GNOME Shell focus helper extension for desktop mode'
+  'wl-clipboard: clipboard fallback for desktop mode'
+  'xdg-desktop-portal: portal clipboard and paste integration'
+  'xdg-desktop-portal-gnome: GNOME portal backend'
+  'ydotool: command-line paste fallback for desktop mode'
+)
+provides=('coe')
+conflicts=('coe')
+source=('git+https://github.com/quailyquaily/coe.git')
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "${srcdir}/coe"
+  printf 'r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+prepare() {
+  cd "${srcdir}/coe"
+
+  sed -i 's/set(CMAKE_CXX_STANDARD 17)/set(CMAKE_CXX_STANDARD 20)/' \
+    packaging/fcitx5/CMakeLists.txt
+}
+
+build() {
+  cd "${srcdir}/coe"
+
+  local commit build_date
+  commit="$(git rev-parse HEAD)"
+  build_date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+
+  go build \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -ldflags="-linkmode external -X main.version=${pkgver} -X main.commit=${commit} -X main.date=${build_date} -X main.builtBy=makepkg" \
+    -o coe \
+    ./cmd/coe
+
+  cmake -S packaging/fcitx5 -B build-fcitx5 \
+    -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=lib
+  cmake --build build-fcitx5
+}
+
+package() {
+  cd "${srcdir}/coe"
+
+  install -Dm755 coe "${pkgdir}/usr/bin/coe"
+  install -Dm644 config.example.yaml "${pkgdir}/usr/share/doc/${pkgname}/config.example.yaml"
+  install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+
+  install -Dm644 packaging/systemd/coe.service "${pkgdir}/usr/lib/systemd/user/coe.service"
+  sed -i 's#%h/.local/bin/coe#/usr/bin/coe#' "${pkgdir}/usr/lib/systemd/user/coe.service"
+
+  DESTDIR="${pkgdir}" cmake --install build-fcitx5 --prefix /usr
+
+  install -d "${pkgdir}/usr/share/gnome-shell/extensions/coe-focus-helper@mistermorph.com"
+  cp -r packaging/gnome-shell-extension/coe-focus-helper@mistermorph.com/. \
+    "${pkgdir}/usr/share/gnome-shell/extensions/coe-focus-helper@mistermorph.com/"
+}
