@@ -69,7 +69,7 @@ Current nuance:
 
 - in this repository's validated GNOME environment, stopping `pw-record` after a successful recording currently yields `exit status 1`
 - this is being treated as a non-fatal warning while audio bytes are present
-- the root cause is documented in [`pw-record-exit-status.md`](./pw-record-exit-status.md)
+- Coe treats that stop-path exit as expected in the validated GNOME flow and avoids surfacing a false failure when audio bytes are present
 
 ### `wl-copy`
 

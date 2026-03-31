@@ -160,5 +160,7 @@ Portal access persistence:
 - [`docs/architecture.md`](./docs/architecture.md)
 - [`docs/fallbacks.md`](./docs/fallbacks.md)
 - [`docs/gnome-globalshortcuts-matrix.md`](./docs/gnome-globalshortcuts-matrix.md)
-- [`docs/pw-record-exit-status.md`](./docs/pw-record-exit-status.md)
-- [`docs/roadmap.md`](./docs/roadmap.md)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/image?repos=quailyquaily/coe&type=date&legend=top-left)](https://www.star-history.com/?repos=quailyquaily%2Fcoe&type=date&legend=top-left)

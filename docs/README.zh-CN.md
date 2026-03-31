@@ -163,6 +163,4 @@ Portal 权限持久化：
 - [docs/architecture.md](./architecture.md)
 - [docs/fallbacks.md](./fallbacks.md)
 - [docs/gnome-globalshortcuts-matrix.md](./gnome-globalshortcuts-matrix.md)
-- [docs/pw-record-exit-status.md](./pw-record-exit-status.md)
 - [docs/qwen3-asr-vllm.md](./qwen3-asr-vllm.md)
-- [docs/roadmap.md](./roadmap.md)

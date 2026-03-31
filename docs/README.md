@@ -12,5 +12,3 @@
 - [feat/fcitx5-implementation-plan.md](./feat/fcitx5-implementation-plan.md): execution plan for the Fcitx5 module, D-Bus contract, and rollout phases.
 - [gnome-focus-helper.md](./gnome-focus-helper.md): GNOME Shell extension contract for focus-aware paste shortcuts.
 - [gnome-globalshortcuts-matrix.md](./gnome-globalshortcuts-matrix.md): Verified and inferred GNOME support matrix for `GlobalShortcuts`.
-- [pw-record-exit-status.md](./pw-record-exit-status.md): root-cause note for `pw-record` returning exit status `1` on an intentional stop.
-- [roadmap.md](./roadmap.md): delivered milestones, remaining portal work, package map, and risks.

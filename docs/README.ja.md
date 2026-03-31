@@ -160,5 +160,3 @@ Portal 権限の持続:
 - [docs/architecture.md](./architecture.md)
 - [docs/fallbacks.md](./fallbacks.md)
 - [docs/gnome-globalshortcuts-matrix.md](./gnome-globalshortcuts-matrix.md)
-- [docs/pw-record-exit-status.md](./pw-record-exit-status.md)
-- [docs/roadmap.md](./roadmap.md)
