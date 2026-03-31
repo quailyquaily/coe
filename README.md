@@ -114,7 +114,6 @@ If the current path is `desktop`, log out and log back in once so GNOME Shell an
 
 Then open any app with an input focus, press the default shortcut `<Shift><Super>d`, speak, then press it again. If all is well, your speech should come back as text in that app.
 
-### Install Dependencies
 
 ### Install Dependencies
 
@@ -179,6 +178,9 @@ Current defaults:
 ### Hotkey
 
 - default trigger key: `<Shift><Super>d`
+- default trigger behavior: `hotkey.trigger_mode: toggle`
+- change it with `coe config set hotkey.trigger_mode toggle` or `coe config set hotkey.trigger_mode hold`
+- `hold` means press to start recording and release to stop, and only takes effect in `runtime.mode: fcitx`
 
 ### ASR
 

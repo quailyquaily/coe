@@ -171,6 +171,9 @@ cp config.example.yaml ~/.config/coe/config.yaml
 ### 热键
 
 - 默认触发键：`<Shift><Super>d`
+- 默认触发行为：`hotkey.trigger_mode: toggle`
+- 可以通过 `coe config set hotkey.trigger_mode toggle` 或 `coe config set hotkey.trigger_mode hold` 修改
+- `hold` 表示按下开始录音、松开结束处理，并且只在 `runtime.mode: fcitx` 下生效
 
 ### ASR
 
