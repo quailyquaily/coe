@@ -293,7 +293,7 @@ If `notify_on_complete` is enabled, the completion notification includes the cor
 
 - `log_level: info`
 - set `log_level: debug` to print per-stage timings and output fallback details
-- set `runtime.mode: fcitx` if you want the Fcitx5 module to take over the trigger path instead of the GNOME fallback
+- new configs default to `runtime.mode: fcitx`; set `runtime.mode: desktop` only if you want to force the GNOME fallback path
 - or override it for one run: `coe serve --log-level debug`
 
 For GNOME focus-aware paste, see:

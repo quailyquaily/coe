@@ -294,7 +294,7 @@ dictionary:
 
 - `log_level: info`
 - `log_level: debug` にすると各段階の所要時間や output fallback の詳細を出します
-- Fcitx5 モジュール側で trigger path を引き受けたい場合は、`runtime.mode` を `fcitx` に設定してください
+- 新規設定では `runtime.mode: fcitx` がデフォルトです。GNOME fallback を強制したい場合だけ `runtime.mode: desktop` に変更してください
 - 1 回だけ上書きするなら `coe serve --log-level debug`
 
 GNOME focus-aware paste については次を参照してください。

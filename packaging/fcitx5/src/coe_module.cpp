@@ -30,6 +30,7 @@ constexpr const char *kServiceName = "com.mistermorph.Coe";
 constexpr const char *kObjectPath = "/com/mistermorph/Coe";
 constexpr const char *kInterfaceName = "com.mistermorph.Coe.Dictation1";
 constexpr const char *kDefaultTriggerKey = "Shift+Super+D";
+constexpr const char *kDefaultTriggerMode = "toggle";
 
 std::string debugMarkerPath() {
     std::ostringstream out;
@@ -67,6 +68,19 @@ std::string toLower(std::string value) {
         ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
     }
     return value;
+}
+
+std::string normalizeTriggerMode(std::string value) {
+    value = toLower(trim(value));
+    if (value.empty()) {
+        return kDefaultTriggerMode;
+    }
+    return value;
+}
+
+bool isSupportedTriggerMode(const std::string &value) {
+    const auto normalized = normalizeTriggerMode(value);
+    return normalized == "toggle" || normalized == "hold";
 }
 
 struct TriggerKeyConfig {
@@ -222,7 +236,9 @@ public:
     explicit CoeModule(fcitx::Instance *instance)
         : instance_(instance),
           triggerKey_(fcitx::Key(kDefaultTriggerKey).normalize()),
-          triggerKeySource_("default") {
+          triggerKeySource_("default"),
+          triggerMode_(kDefaultTriggerMode),
+          dictationState_("idle") {
         if (!instance_) {
             FCITX_ERROR() << "coe-fcitx: missing fcitx instance";
             appendDebugMarker("init error missing-instance");
@@ -239,6 +255,7 @@ public:
         dispatcher_.attach(&instance_->eventLoop());
         connectCallBus();
         refreshTriggerKeyFromDaemon();
+        refreshTriggerModeFromDaemon();
         connectSignalBus();
         keyWatcher_ = instance_->watchEvent(
             fcitx::EventType::InputContextKeyEvent,
@@ -247,9 +264,10 @@ public:
         startSignalLoop();
         FCITX_INFO() << "coe-fcitx: module initialized with trigger "
                      << triggerKey_.toString() << " source="
-                     << triggerKeySource_;
+                     << triggerKeySource_ << " mode=" << triggerMode_;
         appendDebugMarker("init ok trigger=" + triggerKey_.toString() +
-                          " source=" + triggerKeySource_);
+                          " source=" + triggerKeySource_ +
+                          " mode=" + triggerMode_);
     }
 
     ~CoeModule() override {
@@ -351,6 +369,63 @@ private:
         triggerKeySource_ = "daemon";
         appendDebugMarker("trigger-key loaded raw=" + rawValue + " fcitx=" +
                           triggerKey_.toString());
+        dbus_message_unref(reply);
+    }
+
+    void refreshTriggerModeFromDaemon() {
+        if (!callBus_) {
+            return;
+        }
+
+        DBusMessage *message = dbus_message_new_method_call(
+            kServiceName, kObjectPath, kInterfaceName, "TriggerMode");
+        if (!message) {
+            FCITX_WARN() << "coe-fcitx: failed to allocate TriggerMode() D-Bus message";
+            return;
+        }
+
+        DBusError err;
+        dbus_error_init(&err);
+        DBusMessage *reply = dbus_connection_send_with_reply_and_block(
+            callBus_, message, 1500, &err);
+        dbus_message_unref(message);
+
+        if (dbus_error_is_set(&err)) {
+            FCITX_WARN() << "coe-fcitx: TriggerMode() failed, using default: "
+                         << err.name << " " << err.message;
+            appendDebugMarker("trigger-mode fallback default dbus-error");
+            dbus_error_free(&err);
+            return;
+        }
+        if (!reply) {
+            FCITX_WARN() << "coe-fcitx: TriggerMode() returned no reply, using default";
+            appendDebugMarker("trigger-mode fallback default no-reply");
+            return;
+        }
+
+        const char *triggerMode = "";
+        if (!dbus_message_get_args(reply, &err, DBUS_TYPE_STRING, &triggerMode,
+                                   DBUS_TYPE_INVALID)) {
+            FCITX_WARN() << "coe-fcitx: failed to parse TriggerMode() reply, using default: "
+                         << err.message;
+            appendDebugMarker("trigger-mode fallback default parse-error");
+            dbus_error_free(&err);
+            dbus_message_unref(reply);
+            return;
+        }
+
+        const auto rawValue = std::string(triggerMode ? triggerMode : "");
+        const auto normalized = normalizeTriggerMode(rawValue);
+        if (!isSupportedTriggerMode(normalized)) {
+            FCITX_WARN() << "coe-fcitx: invalid trigger mode from daemon '"
+                         << rawValue << "', using default";
+            appendDebugMarker("trigger-mode fallback default invalid-daemon-value");
+            dbus_message_unref(reply);
+            return;
+        }
+
+        triggerMode_ = normalized;
+        appendDebugMarker("trigger-mode loaded value=" + triggerMode_);
         dbus_message_unref(reply);
     }
 
@@ -484,6 +559,10 @@ private:
     }
 
     void updatePanelState(const std::string &state, const std::string &) {
+        dictationState_ = state;
+        if (state != "recording") {
+            holding_ = false;
+        }
         if (state == "recording") {
             startPanelAnimation("recording");
             return;
@@ -638,21 +717,45 @@ private:
 
     void handleKeyEvent(fcitx::Event &event) {
         auto &keyEvent = static_cast<fcitx::KeyEvent &>(event);
-        if (keyEvent.isRelease()) {
+        if (!keyEvent.key().check(triggerKey_)) {
             return;
         }
+
+        if (keyEvent.isRelease()) {
+            handleTriggerRelease(keyEvent);
+            return;
+        }
+
+        handleTriggerPress(keyEvent);
+    }
+
+    void handleTriggerPress(fcitx::KeyEvent &keyEvent) {
         if (!keyEvent.inputContext()) {
             return;
         }
         if (!keyEvent.inputContext()->hasFocus()) {
             return;
         }
-        if (!keyEvent.key().check(triggerKey_)) {
+
+        FCITX_DEBUG() << "coe-fcitx: trigger matched for " << triggerKey_.toString();
+        appendDebugMarker("trigger press key=" + triggerKey_.toString());
+
+        if (triggerMode_ == "hold") {
+            if (holding_) {
+                appendDebugMarker("hold press ignored already-holding");
+                keyEvent.filterAndAccept();
+                return;
+            }
+            if (!callStart()) {
+                FCITX_WARN() << "coe-fcitx: failed to call Coe Start() over D-Bus";
+                appendDebugMarker("start failed");
+                return;
+            }
+            holding_ = true;
+            keyEvent.filterAndAccept();
             return;
         }
 
-        FCITX_DEBUG() << "coe-fcitx: trigger matched for " << triggerKey_.toString();
-        appendDebugMarker("trigger matched key=" + triggerKey_.toString());
         if (!callToggle()) {
             FCITX_WARN() << "coe-fcitx: failed to call Coe Toggle() over D-Bus";
             appendDebugMarker("toggle failed");
@@ -662,7 +765,29 @@ private:
         keyEvent.filterAndAccept();
     }
 
-    bool callToggle() {
+    void handleTriggerRelease(fcitx::KeyEvent &keyEvent) {
+        if (triggerMode_ != "hold") {
+            return;
+        }
+        if (!holding_) {
+            return;
+        }
+
+        FCITX_DEBUG() << "coe-fcitx: trigger release matched for "
+                      << triggerKey_.toString();
+        appendDebugMarker("trigger release key=" + triggerKey_.toString() +
+                          " state=" + dictationState_);
+        holding_ = false;
+        if (!callStop()) {
+            FCITX_WARN() << "coe-fcitx: failed to call Coe Stop() over D-Bus";
+            appendDebugMarker("stop failed");
+            return;
+        }
+
+        keyEvent.filterAndAccept();
+    }
+
+    bool callVoidMethod(const char *methodName) {
         if (!callBus_) {
             connectCallBus();
             if (!callBus_) {
@@ -671,7 +796,7 @@ private:
         }
 
         DBusMessage *message = dbus_message_new_method_call(
-            kServiceName, kObjectPath, kInterfaceName, "Toggle");
+            kServiceName, kObjectPath, kInterfaceName, methodName);
         if (!message) {
             FCITX_ERROR() << "coe-fcitx: failed to allocate D-Bus message";
             return false;
@@ -684,25 +809,35 @@ private:
         dbus_message_unref(message);
 
         if (dbus_error_is_set(&err)) {
-            FCITX_WARN() << "coe-fcitx: Toggle() failed: " << err.name << " "
+            FCITX_WARN() << "coe-fcitx: " << methodName << "() failed: "
+                         << err.name << " "
                          << err.message;
             dbus_error_free(&err);
             return false;
         }
         if (!reply) {
-            FCITX_WARN() << "coe-fcitx: Toggle() returned no reply";
+            FCITX_WARN() << "coe-fcitx: " << methodName << "() returned no reply";
             return false;
         }
 
         dbus_message_unref(reply);
-        FCITX_DEBUG() << "coe-fcitx: Toggle() completed successfully";
-        appendDebugMarker("toggle ok");
+        FCITX_DEBUG() << "coe-fcitx: " << methodName << "() completed successfully";
+        appendDebugMarker(toLower(std::string(methodName)) + " ok");
         return true;
     }
+
+    bool callToggle() { return callVoidMethod("Toggle"); }
+
+    bool callStart() { return callVoidMethod("Start"); }
+
+    bool callStop() { return callVoidMethod("Stop"); }
 
     fcitx::Instance *instance_;
     fcitx::Key triggerKey_;
     std::string triggerKeySource_;
+    std::string triggerMode_;
+    std::string dictationState_;
+    bool holding_ = false;
     fcitx::EventDispatcher dispatcher_;
     DBusConnection *callBus_ = nullptr;
     DBusConnection *signalBus_ = nullptr;

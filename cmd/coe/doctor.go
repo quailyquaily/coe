@@ -38,6 +38,7 @@ type doctorDictationStatus struct {
 	SessionID        string
 	Detail           string
 	TriggerKey       string
+	TriggerMode      string
 	CurrentSceneID   string
 	CurrentSceneName string
 	Err              error
@@ -189,6 +190,12 @@ func buildDoctorChecks(
 				OK:      dictationStatus.Reachable && strings.TrimSpace(dictationStatus.TriggerKey) != "",
 				Detail:  fmt.Sprintf("configured=%s; daemon=%s", cfg.Hotkey.PreferredAccelerator, nonEmpty(dictationStatus.TriggerKey, "missing")),
 				Problem: "the Coe daemon did not report a trigger key",
+			},
+			doctorCheck{
+				Name:    "Fcitx trigger mode",
+				OK:      dictationStatus.Reachable && config.IsSupportedFcitxTriggerMode(dictationStatus.TriggerMode),
+				Detail:  fmt.Sprintf("configured=%s; daemon=%s", config.NormalizeFcitxTriggerMode(cfg.Hotkey.TriggerMode), nonEmpty(dictationStatus.TriggerMode, "missing")),
+				Problem: "the Coe daemon did not report a supported Fcitx trigger mode",
 			},
 		)
 	default:
@@ -460,11 +467,12 @@ func dictationStatusDetail(status doctorDictationStatus) string {
 		return status.Err.Error()
 	}
 	return fmt.Sprintf(
-		"service=%s; state=%s; session_id=%s; trigger_key=%s; scene=%s",
+		"service=%s; state=%s; session_id=%s; trigger_key=%s; trigger_mode=%s; scene=%s",
 		dbusipc.DictationServiceName,
 		nonEmpty(status.State, "unknown"),
 		nonEmpty(status.SessionID, "none"),
 		nonEmpty(status.TriggerKey, "missing"),
+		nonEmpty(status.TriggerMode, "missing"),
 		nonEmpty(status.CurrentSceneID, "missing"),
 	)
 }
@@ -543,6 +551,9 @@ func probeDictationDBus(ctx context.Context) doctorDictationStatus {
 	}
 	if err := obj.CallWithContext(ctx, dbusipc.DictationInterface+".TriggerKey", 0).Store(&status.TriggerKey); err != nil {
 		return doctorDictationStatus{Err: fmt.Errorf("call %s.TriggerKey failed: %w", dbusipc.DictationInterface, err)}
+	}
+	if err := obj.CallWithContext(ctx, dbusipc.DictationInterface+".TriggerMode", 0).Store(&status.TriggerMode); err != nil {
+		return doctorDictationStatus{Err: fmt.Errorf("call %s.TriggerMode failed: %w", dbusipc.DictationInterface, err)}
 	}
 	if err := obj.CallWithContext(ctx, dbusipc.DictationInterface+".CurrentScene", 0).Store(&status.CurrentSceneID, &status.CurrentSceneName); err != nil {
 		return doctorDictationStatus{Err: fmt.Errorf("call %s.CurrentScene failed: %w", dbusipc.DictationInterface, err)}

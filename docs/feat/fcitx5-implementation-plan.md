@@ -1,5 +1,13 @@
 # Coe Fcitx5 Module 实现计划
 
+状态说明：
+
+- 当前 shipped module 仍是 `toggle-only`
+- 本文描述的是对齐
+  [fcitx-hold-to-talk-requirements.md](./fcitx-hold-to-talk-requirements.md)
+  后的目标落地路径
+- bring-up 阶段可以先用 `toggle` 做 smoke test，但 release criteria 必须覆盖 `hold`
+
 ## 1. 目标
 
 把 [fcitx5-module-design.md](./fcitx5-module-design.md) 里的设计落成一条可交付的实现路线。
@@ -20,11 +28,11 @@
 - D-Bus 调 daemon
 - daemon 返回文本
 - module `CommitString`
+- `hold` 的 press/release 状态机
 
 不要一开始就做：
 
 - preedit
-- hold-to-talk
 - 自动启动 daemon
 - 复杂 UI
 
@@ -106,10 +114,10 @@ v1 标准：
 
 先实现：
 
+- `Start()`
+- `Stop()`
 - `Toggle()`
 - `Status() -> (state, session_id, detail)`
-
-`Start()` / `Stop()` 可以第二步补，不必和 `Toggle()` 一起首发。
 
 ### 4.3 最小 signals
 
@@ -156,9 +164,10 @@ Fcitx 路线要改成“有时只产出文本，不直接 paste”。
 阶段通过标准：
 
 1. `coe serve` 启动后可以在 session bus 上看到 service
-2. `gdbus call` 可以触发 `Toggle()`
-3. daemon 会发 `StateChanged`
-4. 完成后能收到 `ResultReady`
+2. `gdbus call` 可以触发 `Start()` 和 `Stop()`
+3. `Toggle()` 仍可用于兼容性联调
+4. daemon 会发 `StateChanged`
+5. 完成后能收到 `ResultReady`
 
 建议命令：
 
@@ -166,7 +175,12 @@ Fcitx 路线要改成“有时只产出文本，不直接 paste”。
 gdbus call --session \
   --dest com.mistermorph.Coe \
   --object-path /com/mistermorph/Coe \
-  --method com.mistermorph.Coe.Dictation1.Toggle
+  --method com.mistermorph.Coe.Dictation1.Start
+
+gdbus call --session \
+  --dest com.mistermorph.Coe \
+  --object-path /com/mistermorph/Coe \
+  --method com.mistermorph.Coe.Dictation1.Stop
 ```
 
 ## Phase 2: Fcitx5 module 骨架
@@ -219,12 +233,21 @@ gdbus call --session \
 - Fcitx module 能驱动 daemon
 - daemon 能把结果回给 module
 
-### 6.1 module 调 `Toggle()`
+### 6.1 module 支持 `trigger_mode`
 
-热键触发时：
+模块需要支持：
 
-- 如果 module 本地状态是 `Idle`，调用 `Toggle()`
-- 如果是 `Recording`，再次调用 `Toggle()`
+- `toggle`
+- `hold`
+
+规则：
+
+- `toggle` 模式下：
+  - `Idle` 时触发热键，调用 `Toggle()`
+  - `Recording` 时再次触发热键，调用 `Toggle()`
+- `hold` 模式下：
+  - 匹配第一个 `press` 时调用 `Start()`
+  - 匹配对应 `release` 时调用 `Stop()`
 
 ### 6.2 监听 daemon signal
 
@@ -236,15 +259,17 @@ module 订阅：
 
 ### 6.3 module 本地状态机
 
-最小状态：
+最小状态模型：
 
-- `Idle`
-- `Recording`
-- `Processing`
+- 运行态：`Idle` / `Recording` / `Processing`
+- `holding` latch：仅 `hold` 模式下使用，用来匹配当前这次按住对应的 `release`
 
 同步规则：
 
-- 调 `Toggle()` 后不立刻信任本地状态
+- `hold` 模式下的 repeat press 必须忽略
+- `hold` 模式下，如果录音已被其他 source 停止，后续 release 静默 no-op
+- 收到 `StateChanged(idle)` 时如果 `holding=true`，必须顺带清理这个 latch
+- 调 `Toggle()` / `Start()` / `Stop()` 后都不立刻信任本地状态
 - 以 daemon 的 `StateChanged` 为准
 
 这样可以避免双方状态漂移。
@@ -254,8 +279,10 @@ module 订阅：
 阶段通过标准：
 
 1. 在 Fcitx 输入框里按热键可以开始录音
-2. 再按一次可以结束录音
-3. module 能收到 `ResultReady`
+2. `toggle` 模式下再按一次可以结束录音
+3. `hold` 模式下松开触发键可以结束录音
+4. 长按期间 auto-repeat 不会重复触发 `Start()`
+5. module 能收到 `ResultReady`
 
 ## Phase 4: CommitString
 
@@ -319,21 +346,23 @@ v1 建议：
 配置新增建议：
 
 ```yaml
-fcitx:
-  enabled: true
-  dbus_service: com.mistermorph.Coe
-  use_current_focus_context: true
-  fallback_to_clipboard: true
+hotkey:
+  trigger_mode: toggle
 ```
 
-是否一定要加 `fcitx.enabled`：
+`trigger_mode` 允许值：
+
+- `toggle`
+- `hold`
+
+是否一定要再加更多 `fcitx.*` 专属配置：
 
 - 不一定
-- 如果 daemon 总是暴露 D-Bus，也可以不加
+- 如果 daemon 总是暴露 D-Bus，可以先不暴露 `enabled` / `dbus_service`
 
 我的建议：
 
-- v1 先不加 `enabled`
+- v1 至少加 `trigger_mode`
 - 默认总是暴露这套接口
 
 ### 8.2 Fcitx module 构建
@@ -365,11 +394,15 @@ v1 先做到：
 1. 当前输入法为英文键盘，触发 Coe，文本可上屏
 2. 当前输入法为中文拼音，触发 Coe，文本可上屏
 3. 当前输入法为日文输入法，触发 Coe，文本可上屏
-4. 录音时切换输入框，结果进入新焦点
-5. 录音结束前输入框关闭，结果 fallback 到剪贴板
-6. daemon 不在线，module 不崩溃
-7. ASR 返回空文本，module 能恢复到 `Idle`
-8. daemon 报错，module 能恢复到 `Idle`
+4. `toggle` 模式下再按一次可以停止录音
+5. `hold` 模式下按下开始、松开停止
+6. 长按期间 auto-repeat 不会重复 `Start()`
+7. 录音时切换输入框，结果进入新焦点
+8. 录音结束前输入框关闭，结果 fallback 到剪贴板
+9. daemon 不在线，module 不崩溃
+10. ASR 返回空文本，module 能恢复到 `Idle`
+11. daemon 报错，module 能恢复到 `Idle`
+12. 录音被其他 source 提前停止后，后续 release 不会报错
 
 ### 9.2 可延后测试
 
@@ -451,9 +484,10 @@ v1 先做到：
 
 1. daemon D-Bus skeleton
 2. Fcitx module skeleton
-3. toggle 联通
-4. `CommitString`
-5. clipboard fallback
-6. packaging
+3. `toggle` smoke test 联通
+4. `hold` 的 press/release 状态机
+5. `CommitString`
+6. clipboard fallback
+7. packaging
 
 这样每一步都能单独验证，也更容易回退。

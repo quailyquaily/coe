@@ -26,6 +26,7 @@ type Handler interface {
 	Stop(context.Context) error
 	Status(context.Context) Status
 	TriggerKey(context.Context) string
+	TriggerMode(context.Context) string
 	CurrentScene(context.Context) (string, string)
 	ListScenes(context.Context) string
 	SwitchScene(context.Context, string) error
@@ -80,6 +81,12 @@ func ConnectSession(handler Handler) (*Service, error) {
 						Name: "TriggerKey",
 						Args: []introspect.Arg{
 							{Name: "trigger_key", Type: "s", Direction: "out"},
+						},
+					},
+					{
+						Name: "TriggerMode",
+						Args: []introspect.Arg{
+							{Name: "trigger_mode", Type: "s", Direction: "out"},
 						},
 					},
 					{
@@ -209,6 +216,10 @@ func (o *dictationObject) Status() (string, string, string, *godbus.Error) {
 
 func (o *dictationObject) TriggerKey() (string, *godbus.Error) {
 	return o.handler.TriggerKey(context.Background()), nil
+}
+
+func (o *dictationObject) TriggerMode() (string, *godbus.Error) {
+	return o.handler.TriggerMode(context.Background()), nil
 }
 
 func (o *dictationObject) CurrentScene() (string, string, *godbus.Error) {

@@ -94,6 +94,16 @@ func (a *App) TriggerKey(context.Context) string {
 	return config.Default().Hotkey.PreferredAccelerator
 }
 
+func (a *App) TriggerMode(context.Context) string {
+	if config.NormalizeRuntimeMode(a.Config.Runtime.Mode) != config.RuntimeModeFcitx {
+		return config.FcitxTriggerModeToggle
+	}
+	if value := strings.TrimSpace(a.Config.Hotkey.TriggerMode); value != "" {
+		return config.NormalizeFcitxTriggerMode(value)
+	}
+	return config.Default().Hotkey.TriggerMode
+}
+
 func (a *App) CurrentScene(context.Context) (string, string) {
 	current := a.currentScene()
 	return current.ID, a.sceneDisplayName(current)

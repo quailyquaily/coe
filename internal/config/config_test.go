@@ -29,7 +29,7 @@ func TestWriteDefaultAndLoad(t *testing.T) {
 	if cfg.Runtime.TargetDesktop != "gnome" {
 		t.Fatalf("unexpected target desktop %q", cfg.Runtime.TargetDesktop)
 	}
-	if cfg.Runtime.Mode != RuntimeModeDesktop {
+	if cfg.Runtime.Mode != RuntimeModeFcitx {
 		t.Fatalf("unexpected runtime mode %q", cfg.Runtime.Mode)
 	}
 	if cfg.Audio.RecorderBinary != "pw-record" {
@@ -49,6 +49,9 @@ func TestWriteDefaultAndLoad(t *testing.T) {
 	}
 	if cfg.Output.TerminalPasteShortcut != "ctrl+shift+v" {
 		t.Fatalf("unexpected terminal paste shortcut %q", cfg.Output.TerminalPasteShortcut)
+	}
+	if cfg.Hotkey.TriggerMode != FcitxTriggerModeToggle {
+		t.Fatalf("unexpected hotkey trigger mode %q", cfg.Hotkey.TriggerMode)
 	}
 	if !cfg.Output.UseGNOMEFocusHelper {
 		t.Fatal("expected GNOME focus helper to be enabled by default")
@@ -160,6 +163,20 @@ func TestLoadRejectsUnsupportedRuntimeMode(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsUnsupportedFcitxTriggerMode(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	data := []byte("hotkey:\n  trigger_mode: press-and-pray\n")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected unsupported fcitx trigger mode to fail")
+	}
+}
+
 func TestLoadResolvesPromptFilesRelativeToConfig(t *testing.T) {
 	t.Parallel()
 
@@ -194,6 +211,18 @@ func TestSetValueRuntimeMode(t *testing.T) {
 	}
 	if cfg.Runtime.Mode != RuntimeModeFcitx {
 		t.Fatalf("runtime.mode = %q, want %q", cfg.Runtime.Mode, RuntimeModeFcitx)
+	}
+}
+
+func TestSetValueFcitxTriggerMode(t *testing.T) {
+	t.Parallel()
+
+	cfg := Default()
+	if err := SetValue(&cfg, "hotkey.trigger_mode", "hold"); err != nil {
+		t.Fatalf("SetValue() error = %v", err)
+	}
+	if cfg.Hotkey.TriggerMode != FcitxTriggerModeHold {
+		t.Fatalf("hotkey.trigger_mode = %q, want %q", cfg.Hotkey.TriggerMode, FcitxTriggerModeHold)
 	}
 }
 

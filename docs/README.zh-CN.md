@@ -286,7 +286,7 @@ dictionary:
 
 - `log_level: info`
 - 可以设成 `log_level: debug` 打印各阶段耗时和 output fallback 细节
-- 如果要让 Fcitx5 模块接管触发路径，而不是走 GNOME fallback，请把 `runtime.mode` 设成 `fcitx`
+- 新生成的配置默认就是 `runtime.mode: fcitx`；只有想强制走 GNOME fallback 时，才需要改成 `runtime.mode: desktop`
 - 也可以单次覆盖：`coe serve --log-level debug`
 
 关于 GNOME focus-aware paste，见：

@@ -16,6 +16,9 @@ const defaultDictionaryRelativePath = "./dictionary.yaml"
 const (
 	RuntimeModeDesktop = "desktop"
 	RuntimeModeFcitx   = "fcitx"
+
+	FcitxTriggerModeToggle = "toggle"
+	FcitxTriggerModeHold   = "hold"
 )
 
 type Config struct {
@@ -38,6 +41,7 @@ type RuntimeConfig struct {
 type HotkeyConfig struct {
 	Name                 string `yaml:"name"`
 	PreferredAccelerator string `yaml:"preferred_accelerator"`
+	TriggerMode          string `yaml:"trigger_mode"`
 }
 
 type AudioConfig struct {
@@ -103,13 +107,14 @@ type InitResult struct {
 func Default() Config {
 	return Config{
 		Runtime: RuntimeConfig{
-			Mode:          RuntimeModeDesktop,
+			Mode:          RuntimeModeFcitx,
 			TargetDesktop: "gnome",
 			LogLevel:      "info",
 		},
 		Hotkey: HotkeyConfig{
 			Name:                 "coe-trigger",
 			PreferredAccelerator: "<Shift><Super>d",
+			TriggerMode:          FcitxTriggerModeToggle,
 		},
 		Audio: AudioConfig{
 			RecorderBinary: "pw-record",
@@ -217,6 +222,10 @@ func Load(path string) (Config, error) {
 	if !IsSupportedRuntimeMode(cfg.Runtime.Mode) {
 		return Config{}, errors.New("unsupported runtime.mode: " + cfg.Runtime.Mode)
 	}
+	cfg.Hotkey.TriggerMode = NormalizeFcitxTriggerMode(cfg.Hotkey.TriggerMode)
+	if !IsSupportedFcitxTriggerMode(cfg.Hotkey.TriggerMode) {
+		return Config{}, errors.New("unsupported hotkey.trigger_mode: " + cfg.Hotkey.TriggerMode)
+	}
 	cfg.ASR.PromptFile = resolveConfigRelativePath(path, cfg.ASR.PromptFile)
 	cfg.LLM.PromptFile = resolveConfigRelativePath(path, cfg.LLM.PromptFile)
 	cfg.Dictionary.File = resolveConfigRelativePath(path, cfg.Dictionary.File)
@@ -227,7 +236,7 @@ func Load(path string) (Config, error) {
 func NormalizeRuntimeMode(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	if value == "" {
-		return RuntimeModeDesktop
+		return RuntimeModeFcitx
 	}
 	return value
 }
@@ -235,6 +244,23 @@ func NormalizeRuntimeMode(value string) string {
 func IsSupportedRuntimeMode(value string) bool {
 	switch NormalizeRuntimeMode(value) {
 	case RuntimeModeDesktop, RuntimeModeFcitx:
+		return true
+	default:
+		return false
+	}
+}
+
+func NormalizeFcitxTriggerMode(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return FcitxTriggerModeToggle
+	}
+	return value
+}
+
+func IsSupportedFcitxTriggerMode(value string) bool {
+	switch NormalizeFcitxTriggerMode(value) {
+	case FcitxTriggerModeToggle, FcitxTriggerModeHold:
 		return true
 	default:
 		return false
@@ -369,6 +395,13 @@ func SetValue(cfg *Config, key, value string) error {
 			return errors.New("unsupported runtime.mode: " + value)
 		}
 		cfg.Runtime.Mode = normalized
+		return nil
+	case "hotkey.trigger_mode":
+		normalized := NormalizeFcitxTriggerMode(value)
+		if !IsSupportedFcitxTriggerMode(normalized) {
+			return errors.New("unsupported hotkey.trigger_mode: " + value)
+		}
+		cfg.Hotkey.TriggerMode = normalized
 		return nil
 	default:
 		return errors.New("unsupported config key: " + key)

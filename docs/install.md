@@ -124,6 +124,13 @@ coe config set runtime.mode fcitx
 coe config set runtime.mode desktop
 ```
 
+If you use the Fcitx path, you can also choose the trigger semantics with:
+
+```bash
+coe config set hotkey.trigger_mode toggle
+coe config set hotkey.trigger_mode hold
+```
+
 ## GNOME shortcut
 
 On GNOME systems that do not expose `GlobalShortcuts`, Coe now tries to ensure a GNOME custom shortcut at startup. It uses:

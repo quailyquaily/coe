@@ -12,6 +12,7 @@ type stubHandler struct {
 	stopCalls   int
 	status      Status
 	triggerKey  string
+	triggerMode string
 	sceneID     string
 	sceneName   string
 	scenesJSON  string
@@ -40,6 +41,10 @@ func (h *stubHandler) Status(context.Context) Status {
 
 func (h *stubHandler) TriggerKey(context.Context) string {
 	return h.triggerKey
+}
+
+func (h *stubHandler) TriggerMode(context.Context) string {
+	return h.triggerMode
 }
 
 func (h *stubHandler) CurrentScene(context.Context) (string, string) {
@@ -118,6 +123,19 @@ func TestDictationObjectCurrentSceneReturnsHandlerValue(t *testing.T) {
 	}
 	if sceneID != handler.sceneID || sceneName != handler.sceneName {
 		t.Fatalf("CurrentScene() = (%q, %q), want (%q, %q)", sceneID, sceneName, handler.sceneID, handler.sceneName)
+	}
+}
+
+func TestDictationObjectTriggerModeReturnsHandlerValue(t *testing.T) {
+	handler := &stubHandler{triggerMode: "hold"}
+	object := &dictationObject{handler: handler}
+
+	triggerMode, err := object.TriggerMode()
+	if err != nil {
+		t.Fatalf("TriggerMode() error = %v, want nil", err)
+	}
+	if triggerMode != handler.triggerMode {
+		t.Fatalf("TriggerMode() = %q, want %q", triggerMode, handler.triggerMode)
 	}
 }
 

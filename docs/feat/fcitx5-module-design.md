@@ -1,5 +1,18 @@
 # Coe Fcitx5 Module 设计草案
 
+## 0. 状态说明
+
+当前 shipped 的 Fcitx module 仍是 `toggle-only`。
+
+本文描述的是对齐
+[fcitx-hold-to-talk-requirements.md](./fcitx-hold-to-talk-requirements.md)
+之后的**目标设计**：
+
+- Fcitx 路径支持可配置的 `trigger_mode`
+- `toggle` 保持兼容现状
+- `hold` 是 Fcitx 特有的 press/release 语义
+- 是否调整默认值，要等 `hold` 的边界验证稳定后再决定
+
 ## 1. 目标
 
 为 `Coe` 增加一条新的输入路径：通过 `Fcitx5` 在当前输入上下文里触发语音输入，并在结果返回后把文本直接上屏。
@@ -14,7 +27,8 @@
 v1 范围明确如下：
 
 - Fcitx5 `Module`，不是独立输入法引擎
-- `toggle` 触发，不做 hold-to-talk
+- 支持 `trigger_mode: toggle | hold`
+- 首轮 rollout 默认保持 `toggle` 兼容，`hold` 作为新增能力落地
 - 不做 preedit UI
 - 结果默认提交到当前焦点 input context
 - 如果当前没有可提交目标，则 fallback 到剪贴板
@@ -135,27 +149,44 @@ Module 模式下，`Coe` 是“当前输入法上的一个语音动作”。
 
 1. Fcitx module 调 daemon 开始录音
 2. 用户说话
-3. 再按一次触发键停止
+3. 在 `toggle` 模式下，再按一次停止；在 `hold` 模式下，松开触发键停止
 4. 结果直接提交到当前焦点输入框
 
 对用户来说，这不是“切换输入法”，而是“当前输入法多了一个语音动作”。
 
 ## 6. 触发模型
 
-v1 只做 `toggle`。
+### 6.1 `trigger_mode`
 
-即：
+Fcitx 路径需要支持两种触发模式：
+
+- `toggle`
+- `hold`
+
+推荐 rollout 策略：
+
+1. 首轮实现保持默认值为 `toggle`
+2. 新增显式配置 `hotkey.trigger_mode`
+3. 等 `hold` 的状态机和边界行为验证稳定后，再决定是否调整默认值
+
+### 6.2 `toggle` 语义
 
 - 第一次触发：开始录音
 - 第二次触发：结束录音并进入转写
 
-不做 hold-to-talk 的理由：
+### 6.3 `hold` 语义
 
-1. 当前 `Coe` 现有 fallback 也是 toggle，复用最多
-2. Fcitx 内部做 press/release 语义更容易踩边界
-3. 先证明“Fcitx 提交路径”成立，比先追求输入体验更重要
+- 匹配 trigger key 的第一个 `press`：调用 `Start()`
+- 长按期间的 repeat press：全部忽略
+- 与这次 hold 对应的第一个 `release`：调用 `Stop()`
+- `release` 到来时，不要求原始 input context 仍然存在
+- 如果录音已经被其他 source 停止，后续 `release` 静默 no-op
 
-后续如果需要再研究 press/release。
+### 6.4 为什么同时保留两种模式
+
+1. `toggle` 已经是 shipped 行为，不能静默改掉用户习惯
+2. `hold` 是 Fcitx 路径独有的能力，不应被桌面 fallback 约束
+3. 两种模式共用同一套 daemon / output / commit 链路，区别主要在 module 本地状态机
 
 ## 7. 提交策略
 
@@ -323,20 +354,19 @@ fallback 规则：
 
 ## 12. Fcitx module 状态机
 
-推荐最小状态机：
+推荐最小状态模型：
 
-- `Idle`
-- `Recording`
-- `Processing`
+- 运行态：`Idle` / `Recording` / `Processing`
+- `holding`：仅在 `hold` 模式下使用的本地 latch，用来等待匹配的 `release`
 
 流程：
 
 1. `Idle`
-   - 触发热键
-   - 如果当前有 input context，则调用 `Toggle()` 并进入 `Recording`
+   - `toggle` 模式下，触发热键并调用 `Toggle()`
+   - `hold` 模式下，匹配第一个 `press` 并调用 `Start()`，同时把 `holding=true`
 2. `Recording`
-   - 再次触发热键
-   - 调用 `Toggle()` 并进入 `Processing`
+   - `toggle` 模式下，再次触发热键时调用 `Toggle()` 并进入 `Processing`
+   - `hold` 模式下，repeat press 忽略；匹配 `release` 时调用 `Stop()`，然后把 `holding=false`
 3. `Processing`
    - 忽略新的开始请求，或给出轻量提示
    - 等待 `ResultReady` 或 `ErrorRaised`
@@ -346,6 +376,9 @@ fallback 规则：
    - 若失败，则 fallback 到剪贴板后回到 `Idle`
 5. 收到 `ErrorRaised`
    - 回到 `Idle`
+6. 如果收到 `StateChanged(idle)` 但本地还保留 `holding=true`
+   - 回到 `Idle`
+   - 视为异常恢复路径，清理本地 hold latch
 
 ## 13. 失败与降级策略
 
@@ -475,7 +508,6 @@ v1 不做：
 
 - Lua 版本
 - 独立输入法引擎
-- hold-to-talk
 - preedit UI
 - 候选词或流式识别面板
 - 跨桌面统一的全局热键
@@ -489,5 +521,6 @@ v1 不做：
 1. `Coe` 应该是 `Fcitx5 Module`，不是独立输入法
 2. daemon 继续负责录音、ASR、LLM；module 只负责触发和提交
 3. 结果默认提交给当前焦点 input context；没有目标时再 fallback 到剪贴板
+4. `trigger_mode` 需要同时支持 `toggle` 和 `hold`，并先以兼容 rollout 落地
 
 这三个点一旦成立，后续实现路径就是清晰的。

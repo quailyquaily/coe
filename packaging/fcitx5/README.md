@@ -7,12 +7,28 @@ Current scope:
 - registers as a Fcitx5 module
 - watches key events in `PreInputMethod`
 - reads the trigger key from Coe over session D-Bus
+- reads the trigger mode from Coe over session D-Bus
 - falls back to `Shift+Super+D` if Coe is unavailable during module init
-- calls `com.mistermorph.Coe.Dictation1.Toggle()` over session D-Bus
+- calls `Toggle()` in `toggle` mode
+- calls `Start()` on press and `Stop()` on release in `hold` mode
 - subscribes to `StateChanged` / `ResultReady` / `ErrorRaised` over session D-Bus
 - dispatches the result back to the Fcitx main event loop
 - shows a small Fcitx panel hint while Coe is listening or processing
 - commits the final text to the current focused input context
+
+Trigger mode is configured through Coe:
+
+```yaml
+hotkey:
+  trigger_mode: toggle
+```
+
+Supported values:
+
+- `toggle`: press once to start recording, press again to stop and process
+- `hold`: press to start recording, release to stop and process
+
+`hold` only takes effect when `runtime.mode: fcitx`.
 
 It does not do these things yet:
 

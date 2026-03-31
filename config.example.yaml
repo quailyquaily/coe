@@ -4,7 +4,7 @@ runtime:
   # `desktop` keeps the current GNOME-first desktop flow.
   # `fcitx` disables the GNOME fallback shortcut path and expects the Fcitx5 module
   # to drive dictation over D-Bus instead.
-  mode: desktop
+  mode: fcitx
   # Target desktop profile. Today this project is GNOME-first.
   target_desktop: gnome
   # Log verbosity: debug, info, warn, error.
@@ -18,6 +18,11 @@ hotkey:
   # Preferred accelerator. On GNOME fallback, Coe will try to register this
   # binding as a custom shortcut that runs `coe trigger toggle`.
   preferred_accelerator: <Shift><Super>d
+  # Trigger semantics used by the Fcitx5 module when runtime.mode is `fcitx`.
+  # `toggle`: press once to start, press again to stop.
+  # `hold`: press to start, release to stop.
+  # When runtime.mode is `desktop`, Coe still behaves as toggle.
+  trigger_mode: toggle
 
 # Local microphone capture settings.
 audio:
@@ -204,3 +209,6 @@ notifications:
 #
 # The Fcitx5 module reads this same hotkey over D-Bus and converts it
 # internally to Fcitx key syntax.
+#
+# hotkey:
+#   trigger_mode: toggle
