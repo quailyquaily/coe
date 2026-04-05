@@ -21,5 +21,13 @@
   "dictation_failed_title": "听写失败",
   "warning_near_silent": "录到的音频几乎无声，已跳过转写。",
   "warning_corrupt_audio": "录到的音频似乎过载或损坏，已跳过转写。",
-  "warning_empty_transcript": "ASR 返回了空转写，已跳过纠错和输出。"
+  "warning_empty_transcript": "ASR 返回了空转写，已跳过纠错和输出。",
+  "hotkey_picker_title": "Coe 热键选择器",
+  "hotkey_picker_heading": "请按下你的触发热键",
+  "hotkey_picker_hint": "按回车确认，或使用下方按钮。",
+  "hotkey_picker_waiting": "等待按键组合...",
+  "hotkey_picker_captured_format": "已捕获：%s",
+  "hotkey_picker_press_first": "请先按一个热键。",
+  "hotkey_picker_confirm": "确定",
+  "hotkey_picker_cancel": "取消"
 }

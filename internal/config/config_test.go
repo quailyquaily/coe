@@ -226,6 +226,108 @@ func TestSetValueFcitxTriggerMode(t *testing.T) {
 	}
 }
 
+func TestNormalizePreferredAccelerator(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:  "normalizes bracket format",
+			input: "<super><shift>D",
+			want:  "<Shift><Super>d",
+		},
+		{
+			name:  "normalizes plus format",
+			input: "ctrl+alt+space",
+			want:  "<Control><Alt>space",
+		},
+		{
+			name:  "allows bare function key",
+			input: "F11",
+			want:  "F11",
+		},
+		{
+			name:  "allows shift function key without primary modifier",
+			input: "<shift>F8",
+			want:  "<Shift>F8",
+		},
+		{
+			name:    "rejects missing primary modifier",
+			input:   "<Shift>k",
+			wantErr: true,
+		},
+		{
+			name:    "rejects bare non function key",
+			input:   "k",
+			wantErr: true,
+		},
+		{
+			name:    "rejects unsupported bare function key",
+			input:   "F13",
+			wantErr: true,
+		},
+		{
+			name:    "rejects terminal ctrl c",
+			input:   "ctrl+c",
+			wantErr: true,
+		},
+		{
+			name:    "rejects escape",
+			input:   "alt+esc",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := NormalizePreferredAccelerator(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("NormalizePreferredAccelerator() error = nil, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("NormalizePreferredAccelerator() error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("NormalizePreferredAccelerator() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSetValuePreferredAccelerator(t *testing.T) {
+	t.Parallel()
+
+	cfg := Default()
+	if err := SetValue(&cfg, "hotkey.preferred_accelerator", "super+shift+d"); err != nil {
+		t.Fatalf("SetValue() error = %v", err)
+	}
+	if cfg.Hotkey.PreferredAccelerator != "<Shift><Super>d" {
+		t.Fatalf("hotkey.preferred_accelerator = %q, want %q", cfg.Hotkey.PreferredAccelerator, "<Shift><Super>d")
+	}
+}
+
+func TestSetValuePreferredAcceleratorAllowsBareFunctionKey(t *testing.T) {
+	t.Parallel()
+
+	cfg := Default()
+	if err := SetValue(&cfg, "hotkey.preferred_accelerator", "F11"); err != nil {
+		t.Fatalf("SetValue() error = %v", err)
+	}
+	if cfg.Hotkey.PreferredAccelerator != "F11" {
+		t.Fatalf("hotkey.preferred_accelerator = %q, want %q", cfg.Hotkey.PreferredAccelerator, "F11")
+	}
+}
+
 func TestSetValueRejectsUnsupportedKey(t *testing.T) {
 	t.Parallel()
 

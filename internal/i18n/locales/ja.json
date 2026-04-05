@@ -21,5 +21,13 @@
   "dictation_failed_title": "音声入力に失敗しました",
   "warning_near_silent": "録音された音声はほぼ無音だったため、文字起こしをスキップしました。",
   "warning_corrupt_audio": "録音された音声は飽和または破損しているようだったため、文字起こしをスキップしました。",
-  "warning_empty_transcript": "ASR が空の文字起こしを返したため、補正と出力をスキップしました。"
+  "warning_empty_transcript": "ASR が空の文字起こしを返したため、補正と出力をスキップしました。",
+  "hotkey_picker_title": "Coe ホットキーピッカー",
+  "hotkey_picker_heading": "トリガーホットキーを押してください",
+  "hotkey_picker_hint": "Enter で確定、または下のボタンを使ってください。",
+  "hotkey_picker_waiting": "キー入力を待っています...",
+  "hotkey_picker_captured_format": "取得したキー: %s",
+  "hotkey_picker_press_first": "先にホットキーを押してください。",
+  "hotkey_picker_confirm": "確定",
+  "hotkey_picker_cancel": "キャンセル"
 }

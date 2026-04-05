@@ -144,6 +144,14 @@ On GNOME systems that do not expose `GlobalShortcuts`, Coe now tries to ensure a
 
 If startup cannot write GNOME shortcut settings, Coe logs a startup warning and you can still add the shortcut manually.
 
+If you want to change the trigger binding, run:
+
+```bash
+coe hotkey pick
+```
+
+That updates `hotkey.preferred_accelerator` and restarts Coe.
+
 ## GNOME focus helper
 
 On GNOME sessions, or when you pass `--gnome`, the install script also copies the Coe GNOME Shell extension to:

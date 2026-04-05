@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -20,6 +23,34 @@ const (
 	FcitxTriggerModeToggle = "toggle"
 	FcitxTriggerModeHold   = "hold"
 )
+
+var acceleratorModifierOrder = map[string]int{
+	"Control": 0,
+	"Alt":     1,
+	"Shift":   2,
+	"Super":   3,
+}
+
+var forbiddenAccelerators = map[string]string{
+	"<Control>c":              "Ctrl+C is reserved by terminals for interrupt",
+	"<Control>d":              "Ctrl+D is reserved by terminals for EOF",
+	"<Control>z":              "Ctrl+Z is reserved by terminals for suspend",
+	"<Control>q":              "Ctrl+Q is a common quit shortcut",
+	"<Control>s":              "Ctrl+S is a common save shortcut",
+	"<Alt>Tab":                "Alt+Tab is reserved for window switching",
+	"<Alt><Shift>Tab":         "Shift+Alt+Tab is reserved for reverse window switching",
+	"<Super>Tab":              "Super+Tab is reserved for shell switching",
+	"<Shift><Super>Tab":       "Shift+Super+Tab is reserved for reverse shell switching",
+	"<Alt>F4":                 "Alt+F4 is reserved for closing windows",
+	"<Super>d":                "Super+D is reserved by GNOME",
+	"<Super>l":                "Super+L is reserved for screen locking",
+	"<Super>space":            "Super+Space is reserved for input source switching",
+	"<Shift><Super>space":     "Shift+Super+Space is reserved for reverse input source switching",
+	"<Control><Alt>Delete":    "Ctrl+Alt+Delete is reserved by the system",
+	"<Control><Alt>BackSpace": "Ctrl+Alt+BackSpace is reserved by the system",
+	"<Control><Shift>Escape":  "Ctrl+Shift+Escape is a common system shortcut",
+	"<Super>Escape":           "Super+Escape is reserved by GNOME",
+}
 
 type Config struct {
 	Runtime       RuntimeConfig       `yaml:"runtime"`
@@ -258,6 +289,221 @@ func NormalizeFcitxTriggerMode(value string) string {
 	return value
 }
 
+func NormalizePreferredAccelerator(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", errors.New("hotkey.preferred_accelerator cannot be empty")
+	}
+
+	modifiers, key, err := parseAccelerator(value)
+	if err != nil {
+		return "", err
+	}
+	allowsModifierless := allowsModifierlessAcceleratorKey(key)
+	if len(modifiers) == 0 && !allowsModifierless {
+		return "", errors.New("hotkey.preferred_accelerator must include at least one modifier")
+	}
+
+	hasPrimaryModifier := false
+	for _, modifier := range modifiers {
+		if modifier == "Control" || modifier == "Alt" || modifier == "Super" {
+			hasPrimaryModifier = true
+			break
+		}
+	}
+	if len(modifiers) > 0 && !hasPrimaryModifier && !allowsModifierless {
+		return "", errors.New("hotkey.preferred_accelerator must include Control, Alt, or Super")
+	}
+	if key == "Return" || key == "Escape" {
+		return "", fmt.Errorf("hotkey.preferred_accelerator cannot use %s", key)
+	}
+
+	sort.Slice(modifiers, func(i, j int) bool {
+		return acceleratorModifierOrder[modifiers[i]] < acceleratorModifierOrder[modifiers[j]]
+	})
+
+	var b strings.Builder
+	for _, modifier := range modifiers {
+		b.WriteString("<")
+		b.WriteString(modifier)
+		b.WriteString(">")
+	}
+	b.WriteString(key)
+	normalized := b.String()
+
+	if reason, forbidden := forbiddenAccelerators[normalized]; forbidden {
+		return "", fmt.Errorf("hotkey.preferred_accelerator %q is not allowed: %s", normalized, reason)
+	}
+
+	return normalized, nil
+}
+
+func parseAccelerator(value string) ([]string, string, error) {
+	if strings.HasPrefix(value, "<") {
+		return parseBracketAccelerator(value)
+	}
+	if !strings.Contains(value, "+") {
+		key, err := normalizeAcceleratorKey(value)
+		if err != nil {
+			return nil, "", err
+		}
+		return nil, key, nil
+	}
+	return parsePlusAccelerator(value)
+}
+
+func parseBracketAccelerator(value string) ([]string, string, error) {
+	rest := strings.TrimSpace(value)
+	var modifiers []string
+
+	for strings.HasPrefix(rest, "<") {
+		end := strings.Index(rest, ">")
+		if end <= 1 {
+			return nil, "", fmt.Errorf("invalid accelerator %q", value)
+		}
+		modifier, err := normalizeAcceleratorModifier(rest[1:end])
+		if err != nil {
+			return nil, "", err
+		}
+		modifiers = append(modifiers, modifier)
+		rest = strings.TrimSpace(rest[end+1:])
+	}
+
+	key, err := normalizeAcceleratorKey(rest)
+	if err != nil {
+		return nil, "", err
+	}
+	return uniqueModifiers(modifiers), key, nil
+}
+
+func parsePlusAccelerator(value string) ([]string, string, error) {
+	parts := strings.Split(value, "+")
+	if len(parts) < 2 {
+		return nil, "", fmt.Errorf("invalid accelerator %q", value)
+	}
+
+	modifiers := make([]string, 0, len(parts)-1)
+	for _, part := range parts[:len(parts)-1] {
+		modifier, err := normalizeAcceleratorModifier(part)
+		if err != nil {
+			return nil, "", err
+		}
+		modifiers = append(modifiers, modifier)
+	}
+
+	key, err := normalizeAcceleratorKey(parts[len(parts)-1])
+	if err != nil {
+		return nil, "", err
+	}
+	return uniqueModifiers(modifiers), key, nil
+}
+
+func normalizeAcceleratorModifier(value string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "ctrl", "control":
+		return "Control", nil
+	case "alt":
+		return "Alt", nil
+	case "shift":
+		return "Shift", nil
+	case "super", "meta", "win", "windows":
+		return "Super", nil
+	default:
+		return "", fmt.Errorf("unsupported modifier %q", strings.TrimSpace(value))
+	}
+}
+
+func normalizeAcceleratorKey(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", errors.New("accelerator key cannot be empty")
+	}
+	if strings.ContainsAny(value, " \t\r\n") {
+		return "", fmt.Errorf("unsupported key %q", value)
+	}
+
+	if len(value) == 1 {
+		r := rune(value[0])
+		switch {
+		case unicode.IsLetter(r):
+			return strings.ToLower(value), nil
+		case unicode.IsDigit(r):
+			return value, nil
+		case unicode.IsPrint(r) && !unicode.IsSpace(r):
+			return value, nil
+		}
+	}
+
+	lowered := strings.ToLower(value)
+	switch lowered {
+	case "enter", "return":
+		return "Return", nil
+	case "esc", "escape":
+		return "Escape", nil
+	case "space", "spacebar":
+		return "space", nil
+	case "tab":
+		return "Tab", nil
+	case "backspace":
+		return "BackSpace", nil
+	case "delete", "del":
+		return "Delete", nil
+	case "insert", "ins":
+		return "Insert", nil
+	case "home":
+		return "Home", nil
+	case "end":
+		return "End", nil
+	case "pageup", "page_up":
+		return "Page_Up", nil
+	case "pagedown", "page_down":
+		return "Page_Down", nil
+	case "left":
+		return "Left", nil
+	case "right":
+		return "Right", nil
+	case "up":
+		return "Up", nil
+	case "down":
+		return "Down", nil
+	case "print":
+		return "Print", nil
+	}
+
+	if len(lowered) >= 2 && lowered[0] == 'f' {
+		n, err := strconv.Atoi(lowered[1:])
+		if err == nil && n >= 1 && n <= 24 {
+			return fmt.Sprintf("F%d", n), nil
+		}
+	}
+
+	return value, nil
+}
+
+func allowsModifierlessAcceleratorKey(key string) bool {
+	if len(key) < 2 || key[0] != 'F' {
+		return false
+	}
+	n, err := strconv.Atoi(key[1:])
+	if err != nil {
+		return false
+	}
+	return n >= 1 && n <= 12
+}
+
+func uniqueModifiers(modifiers []string) []string {
+	seen := make(map[string]bool, len(modifiers))
+	result := make([]string, 0, len(modifiers))
+	for _, modifier := range modifiers {
+		if seen[modifier] {
+			continue
+		}
+		seen[modifier] = true
+		result = append(result, modifier)
+	}
+	return result
+}
+
 func IsSupportedFcitxTriggerMode(value string) bool {
 	switch NormalizeFcitxTriggerMode(value) {
 	case FcitxTriggerModeToggle, FcitxTriggerModeHold:
@@ -402,6 +648,13 @@ func SetValue(cfg *Config, key, value string) error {
 			return errors.New("unsupported hotkey.trigger_mode: " + value)
 		}
 		cfg.Hotkey.TriggerMode = normalized
+		return nil
+	case "hotkey.preferred_accelerator":
+		normalized, err := NormalizePreferredAccelerator(value)
+		if err != nil {
+			return err
+		}
+		cfg.Hotkey.PreferredAccelerator = normalized
 		return nil
 	default:
 		return errors.New("unsupported config key: " + key)
