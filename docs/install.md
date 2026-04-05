@@ -74,10 +74,10 @@ Example:
 OPENAI_API_KEY=sk-...
 ```
 
-Then restart the service:
+Then restart Coe:
 
 ```bash
-systemctl --user restart coe.service
+coe restart
 ```
 
 If you prefer, you can keep `~/.config/coe/env` empty and store provider-specific keys directly in `asr.api_key` and `llm.api_key` inside `~/.config/coe/config.yaml`.
@@ -171,7 +171,7 @@ journalctl --user -u coe.service -f
 Restart after changing config or env:
 
 ```bash
-systemctl --user restart coe.service
+coe restart
 ```
 
 Stop the daemon:

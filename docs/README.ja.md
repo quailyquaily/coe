@@ -144,6 +144,7 @@ Portal 権限の持続:
 
 - `coe doctor`
 - `coe config init`
+- `coe restart`
 - `coe serve`
 - `coe trigger toggle`
 - `coe trigger start`

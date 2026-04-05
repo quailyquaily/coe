@@ -146,6 +146,7 @@ Portal 权限持久化：
 
 - `coe doctor`
 - `coe config init`
+- `coe restart`
 - `coe serve`
 - `coe trigger toggle`
 - `coe trigger start`

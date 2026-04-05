@@ -40,6 +40,8 @@ func run(parent context.Context, args []string) error {
 		return runDoctor(parent)
 	case "config":
 		return runConfig(parent, args[1:])
+	case "restart":
+		return runRestart(parent, args[1:])
 	case "serve":
 		return runServe(parent, args[1:])
 	case "trigger":

@@ -161,7 +161,7 @@ coe serve --log-level debug
 或者如果你已经装成了用户服务：
 
 ```bash
-systemctl --user restart coe.service
+coe restart
 journalctl --user -u coe.service -f
 ```
 

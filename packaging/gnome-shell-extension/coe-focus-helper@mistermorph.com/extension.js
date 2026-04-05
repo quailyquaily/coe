@@ -9,8 +9,6 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 const OBJECT_PATH = '/org/gnome/Shell/Extensions/FocusWmClass';
 const COE_SERVICE_NAME = 'com.mistermorph.Coe';
 const COE_OBJECT_PATH = '/com/mistermorph/Coe';
-const FCITX_RUNTIME_MODE = 'fcitx';
-const DESKTOP_RUNTIME_MODE = 'desktop';
 const INTERFACE_XML = `
 <node>
   <interface name="org.gnome.Shell.Extensions.FocusWmClass">
@@ -265,117 +263,50 @@ export default class CoeFocusHelperExtension extends Extension {
   }
 
   _restartCoe() {
-    this._detectRuntimeMode(runtimeMode => {
-      const normalizedMode = this._normalizeRuntimeMode(runtimeMode);
-      const shouldRestartFcitx = normalizedMode === FCITX_RUNTIME_MODE;
-      emitInfo(`restarting coe.service (runtime.mode=${normalizedMode})`);
-      this._runCommand(
-        ['systemctl', '--user', 'restart', 'coe.service'],
-        'coe.service restart',
-        () => {
-          emitInfo('coe.service restart completed');
-          if (!shouldRestartFcitx) {
-            this._scheduleScenesRefresh();
-            return;
-          }
-
-          emitInfo('runtime.mode=fcitx, restarting fcitx5');
-          this._runCommand(
-            ['fcitx5', '-rd'],
-            'fcitx5 restart',
-            () => {
-              emitInfo('fcitx5 restart completed');
-              this._scheduleScenesRefresh();
-            },
-            error => {
-              emitError('failed to restart fcitx5', error);
-              Main.notifyError('Coe', `Restarted Coe, but failed to restart fcitx5: ${error.message}`);
-              this._scheduleScenesRefresh();
-            });
-        },
-        error => {
-          emitError('failed to restart coe.service', error);
-          Main.notifyError('Coe', `Failed to restart Coe: ${error.message}`);
-        });
-    });
-  }
-
-  _detectRuntimeMode(callback) {
-    if (this._coeProxy?.RuntimeModeRemote) {
-      this._coeProxy.RuntimeModeRemote((result, error) => {
-        if (error) {
-          emitError('RuntimeMode failed, falling back to config file', error);
-          callback(this._readRuntimeModeFromConfig());
-          return;
-        }
-
-        const [runtimeMode] = result ?? [];
-        callback(this._normalizeRuntimeMode(runtimeMode));
-      });
+    const coeBinary = this._resolveCoeBinary();
+    if (!coeBinary) {
+      const error = new Error('coe binary not found');
+      emitError('failed to resolve coe binary for restart', error);
+      Main.notifyError('Coe', `Failed to restart Coe: ${error.message}`);
       return;
     }
 
-    callback(this._readRuntimeModeFromConfig());
+    emitInfo(`restarting Coe via ${coeBinary} restart`);
+    this._runCommand(
+      [coeBinary, 'restart'],
+      'coe restart',
+      () => {
+        emitInfo('coe restart completed');
+        this._scheduleScenesRefresh();
+      },
+      error => {
+        emitError('failed to restart Coe', error);
+        Main.notifyError('Coe', `Failed to restart Coe: ${error.message}`);
+      });
   }
 
-  _readRuntimeModeFromConfig() {
-    const configPath = GLib.getenv('COE_CONFIG') ||
-      GLib.build_filenamev([GLib.get_home_dir(), '.config', 'coe', 'config.yaml']);
+  _resolveCoeBinary() {
+    const homeBinary = GLib.build_filenamev([GLib.get_home_dir(), '.local', 'bin', 'coe']);
+    if (GLib.file_test(homeBinary, GLib.FileTest.IS_EXECUTABLE))
+      return homeBinary;
 
-    try {
-      const [ok, contents] = GLib.file_get_contents(configPath);
-      if (!ok)
-        return DESKTOP_RUNTIME_MODE;
+    const pathBinary = GLib.find_program_in_path('coe');
+    if (pathBinary)
+      return pathBinary;
 
-      return this._parseRuntimeMode(new TextDecoder().decode(contents));
-    } catch (error) {
-      emitError(`failed to read runtime.mode from ${configPath}`, error);
-      return DESKTOP_RUNTIME_MODE;
-    }
-  }
-
-  _parseRuntimeMode(contents) {
-    let inRuntime = false;
-
-    for (const rawLine of contents.split('\n')) {
-      const line = rawLine.replace(/\r$/, '');
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#'))
-        continue;
-
-      if (!line.startsWith(' ') && !line.startsWith('\t')) {
-        inRuntime = /^runtime\s*:\s*$/.test(trimmed);
-        continue;
-      }
-
-      if (!inRuntime)
-        continue;
-
-      const match = line.match(/^\s*mode\s*:\s*([^#\s]+|"[^"]+"|'[^']+')\s*(?:#.*)?$/);
-      if (!match)
-        continue;
-
-      return this._normalizeRuntimeMode(match[1]);
-    }
-
-    return FCITX_RUNTIME_MODE;
-  }
-
-  _normalizeRuntimeMode(value) {
-    const normalized = `${value ?? ''}`.trim().replace(/^['"]|['"]$/g, '').toLowerCase();
-    if (normalized === FCITX_RUNTIME_MODE)
-      return FCITX_RUNTIME_MODE;
-    if (normalized === DESKTOP_RUNTIME_MODE)
-      return DESKTOP_RUNTIME_MODE;
-    return DESKTOP_RUNTIME_MODE;
+    return null;
   }
 
   _runCommand(argv, description, onSuccess, onFailure) {
     try {
-      const proc = Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE);
-      proc.wait_check_async(null, (subprocess, result) => {
+      const proc = Gio.Subprocess.new(argv, Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE);
+      proc.communicate_utf8_async(null, null, (subprocess, result) => {
         try {
-          subprocess.wait_check_finish(result);
+          const [, stdout, stderr] = subprocess.communicate_utf8_finish(result);
+          if (!subprocess.get_successful()) {
+            const detail = (stderr || stdout || `${description} failed`).trim();
+            throw new Error(detail);
+          }
           onSuccess?.();
         } catch (error) {
           onFailure?.(error);

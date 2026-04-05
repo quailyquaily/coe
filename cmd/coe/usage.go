@@ -9,6 +9,7 @@ func printUsage() {
 	fmt.Println("  coe doctor")
 	fmt.Println("  coe config init")
 	fmt.Println("  coe config set <key> <value>")
+	fmt.Println("  coe restart")
 	fmt.Println("  coe serve [--log-level <debug|info|warn|error>]")
 	fmt.Println("  coe trigger <toggle|start|stop|status>")
 	fmt.Println("  coe version")
