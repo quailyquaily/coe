@@ -6,6 +6,10 @@ Coe is a voice input tool for Linux desktops.
 
 It is a Linux-focused tribute to [`missuo/koe`](https://github.com/missuo/koe). The goal has not changed: press a hotkey, speak, let an LLM clean up the transcript, and put the text back into the active app.
 
+## Demo
+
+![Coe screencast on Linux desktop](./docs/screencast.gif)
+
 ## The Name
 
 `coe` is close to `koe` on purpose. This project nods to Koe, but it targets Linux and Wayland. The old kanji `聲` means voice. That is the job.
