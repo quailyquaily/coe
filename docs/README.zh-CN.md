@@ -51,6 +51,8 @@ bash /tmp/install.sh
 
 然后打开一个有输入焦点的 App，按下默认快捷键：`<Shift><Super>d`，说话，再按一次，稍等片刻，如果正常的话，会看到说的话变成文字出现在这个 App。
 
+可以用 `coe hotkey pick` 命令来设置命令。
+
 ### Arch Linux
 
 ```bash
@@ -101,7 +103,8 @@ go run ./cmd/coe config init
 快速摘要：
 
 - 默认热键：`<Shift><Super>d`
-- 默认热键行为：`hotkey.trigger_mode: toggle`，即按一次开始听写，再按一次结束听写。另有可选值为 `hold`，即长按热键开始听写，释放热键结束听写（只在 `runtime.mode: fcitx` 下生效）
+- 默认热键行为：`hotkey.trigger_mode: toggle`，即按一次开始听写，再按一次结束听写。
+  另有可选值为 `hold`，即长按热键开始听写，释放热键结束听写（只在 fcitx 模式下生效）
 - 支持的 ASR provider：`openai`、`whispercpp`、`sensevoice`、`qwen3-asr-vllm`
 - LLM 校正：支持所有 openai 兼容 API 的上游模型
 
