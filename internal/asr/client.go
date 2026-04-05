@@ -19,11 +19,40 @@ type Client interface {
 	Name() string
 }
 
+const (
+	ProviderStub            = "stub"
+	ProviderOpenAI          = "openai"
+	ProviderWhisperCPP      = "whispercpp"
+	ProviderSenseVoice      = "sensevoice"
+	ProviderQwen3ASRVLLM    = "qwen3-asr-vllm"
+	ProviderWhisperCPPAlias = "whisper.cpp"
+)
+
+func NormalizeProviderName(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", ProviderStub:
+		return ProviderStub
+	case ProviderWhisperCPPAlias, ProviderWhisperCPP:
+		return ProviderWhisperCPP
+	default:
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+}
+
+func SupportedProvider(value string) bool {
+	switch NormalizeProviderName(value) {
+	case ProviderStub, ProviderOpenAI, ProviderWhisperCPP, ProviderSenseVoice, ProviderQwen3ASRVLLM:
+		return true
+	default:
+		return false
+	}
+}
+
 func NewClient(provider config.ASRConfig) (Client, error) {
-	switch strings.ToLower(provider.Provider) {
-	case "", "stub":
+	switch NormalizeProviderName(provider.Provider) {
+	case ProviderStub:
 		return StubClient{}, nil
-	case "openai":
+	case ProviderOpenAI:
 		return OpenAIClient{
 			Endpoint:   provider.Endpoint,
 			Model:      provider.Model,
@@ -33,7 +62,7 @@ func NewClient(provider config.ASRConfig) (Client, error) {
 			Prompt:     provider.Prompt,
 			PromptFile: provider.PromptFile,
 		}, nil
-	case "whispercpp", "whisper.cpp":
+	case ProviderWhisperCPP:
 		return WhisperCPPCLIClient{
 			Binary:     provider.Binary,
 			ModelPath:  provider.ModelPath,
@@ -43,12 +72,12 @@ func NewClient(provider config.ASRConfig) (Client, error) {
 			Threads:    provider.Threads,
 			UseGPU:     provider.UseGPU,
 		}, nil
-	case "sensevoice":
+	case ProviderSenseVoice:
 		return SenseVoiceHTTPClient{
 			Endpoint: provider.Endpoint,
 			Language: provider.Language,
 		}, nil
-	case "qwen3-asr-vllm":
+	case ProviderQwen3ASRVLLM:
 		return Qwen3ASRVLLMClient{
 			Endpoint:  provider.Endpoint,
 			Model:     provider.Model,

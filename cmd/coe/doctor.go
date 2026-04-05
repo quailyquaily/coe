@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"coe/internal/asr"
 	"coe/internal/capabilities"
 	"coe/internal/config"
 	"coe/internal/focus"
@@ -322,15 +323,12 @@ func doctorFeatureDetail(plan capabilities.FeaturePlan) string {
 }
 
 func validateASRConfig(cfg config.ASRConfig) doctorCheck {
-	provider := strings.ToLower(strings.TrimSpace(cfg.Provider))
-	if provider == "" {
-		provider = "stub"
-	}
+	provider := asr.NormalizeProviderName(cfg.Provider)
 
 	switch provider {
-	case "stub":
+	case asr.ProviderStub:
 		return doctorCheck{Name: "ASR provider", OK: true, Detail: "provider=stub; transcription disabled", Problem: ""}
-	case "openai":
+	case asr.ProviderOpenAI:
 		keySource, keyOK := providerAPIKeySource(cfg.APIKey, cfg.APIKeyEnv)
 		modelOK := strings.TrimSpace(cfg.Model) != ""
 		endpoint := nonEmpty(strings.TrimSpace(cfg.Endpoint), "https://api.openai.com/v1/audio/transcriptions")
@@ -347,7 +345,7 @@ func validateASRConfig(cfg config.ASRConfig) doctorCheck {
 			Detail:  fmt.Sprintf("provider=openai; endpoint=%s; model=%s; api_key=%s", endpoint, nonEmpty(cfg.Model, "missing"), keySource),
 			Problem: problem,
 		}
-	case "whispercpp", "whisper.cpp":
+	case asr.ProviderWhisperCPP:
 		binaryPath, binaryOK := resolveOptionalBinary(cfg.Binary, "whisper-cli")
 		modelPath := strings.TrimSpace(cfg.ModelPath)
 		modelOK := fileExists(modelPath)
@@ -363,7 +361,7 @@ func validateASRConfig(cfg config.ASRConfig) doctorCheck {
 			Detail:  fmt.Sprintf("provider=whispercpp; binary=%s; model_path=%s; threads=%d; use_gpu=%t", nonEmpty(binaryPath, "missing"), nonEmpty(modelPath, "missing"), cfg.Threads, cfg.UseGPU),
 			Problem: problem,
 		}
-	case "sensevoice":
+	case asr.ProviderSenseVoice:
 		endpoint := strings.TrimSpace(cfg.Endpoint)
 		if endpoint == "" {
 			endpoint = "http://127.0.0.1:50000/api/v1/asr"
@@ -372,6 +370,22 @@ func validateASRConfig(cfg config.ASRConfig) doctorCheck {
 			Name:    "ASR provider",
 			OK:      true,
 			Detail:  fmt.Sprintf("provider=sensevoice; endpoint=%s; language=%s", endpoint, nonEmpty(cfg.Language, "auto")),
+			Problem: "",
+		}
+	case asr.ProviderQwen3ASRVLLM:
+		keySource, _ := providerAPIKeySource(cfg.APIKey, cfg.APIKeyEnv)
+		endpoint := strings.TrimSpace(cfg.Endpoint)
+		if endpoint == "" {
+			endpoint = "http://127.0.0.1:8000/v1/chat/completions"
+		}
+		model := strings.TrimSpace(cfg.Model)
+		if model == "" {
+			model = "Qwen3-ASR"
+		}
+		return doctorCheck{
+			Name:    "ASR provider",
+			OK:      true,
+			Detail:  fmt.Sprintf("provider=qwen3-asr-vllm; endpoint=%s; model=%s; api_key=%s", endpoint, model, keySource),
 			Problem: "",
 		}
 	default:
