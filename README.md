@@ -55,6 +55,8 @@ If you are on GNOME Shell, log out and log back in once so GNOME Shell picks up 
 
 Then open any app with an input focus, press the default shortcut `<Shift><Super>d`, speak, then press it again. If all is well, your speech should come back as text in that app.
 
+You can use `coe hotkey pick` to choose a different shortcut.
+
 ### Arch Linux
 
 ```bash
