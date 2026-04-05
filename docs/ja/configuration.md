@@ -39,6 +39,7 @@ cp config.example.yaml ~/.config/coe/config.yaml
 ### ホットキー
 
 - デフォルトトリガーキー: `<Shift><Super>d`
+- `coe hotkey pick` で変更できます
 - デフォルトのトリガー動作: `hotkey.trigger_mode: toggle`
 - `coe config set hotkey.trigger_mode toggle` または `coe config set hotkey.trigger_mode hold` で変更できます
 - `hold` は押して録音開始、離して終了という意味で、`runtime.mode: fcitx` のときだけ有効です

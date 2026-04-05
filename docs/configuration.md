@@ -39,6 +39,7 @@ cp config.example.yaml ~/.config/coe/config.yaml
 ### Hotkey
 
 - default trigger key: `<Shift><Super>d`
+- change it with `coe hotkey pick`
 - default trigger behavior: `hotkey.trigger_mode: toggle`
 - change it with `coe config set hotkey.trigger_mode toggle` or `coe config set hotkey.trigger_mode hold`
 - `hold` means press to start recording and release to stop, and only takes effect in `runtime.mode: fcitx`

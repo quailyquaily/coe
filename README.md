@@ -148,6 +148,7 @@ Portal access persistence:
 
 - `coe doctor`
 - `coe config init`
+- `coe hotkey pick`
 - `coe restart`
 - `coe serve`
 - `coe trigger toggle`

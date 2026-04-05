@@ -21,5 +21,13 @@
   "dictation_failed_title": "Dictation failed",
   "warning_near_silent": "Captured audio was near-silent, so transcription was skipped.",
   "warning_corrupt_audio": "Captured audio looked saturated or corrupted, so transcription was skipped.",
-  "warning_empty_transcript": "ASR returned empty text, so correction and output were skipped."
+  "warning_empty_transcript": "ASR returned empty text, so correction and output were skipped.",
+  "hotkey_picker_title": "Coe Hotkey Picker",
+  "hotkey_picker_heading": "Press your trigger hotkey",
+  "hotkey_picker_hint": "Press Enter to confirm, or use the buttons below.",
+  "hotkey_picker_waiting": "Waiting for key combination...",
+  "hotkey_picker_captured_format": "Captured: %s",
+  "hotkey_picker_press_first": "Press a hotkey first.",
+  "hotkey_picker_confirm": "Confirm",
+  "hotkey_picker_cancel": "Cancel"
 }

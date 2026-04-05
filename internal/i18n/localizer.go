@@ -43,6 +43,14 @@ const (
 	WarningNearSilent           Key = "warning_near_silent"
 	WarningCorruptAudio         Key = "warning_corrupt_audio"
 	WarningEmptyTranscript      Key = "warning_empty_transcript"
+	HotkeyPickerTitle           Key = "hotkey_picker_title"
+	HotkeyPickerHeading         Key = "hotkey_picker_heading"
+	HotkeyPickerHint            Key = "hotkey_picker_hint"
+	HotkeyPickerWaiting         Key = "hotkey_picker_waiting"
+	HotkeyPickerCapturedFormat  Key = "hotkey_picker_captured_format"
+	HotkeyPickerPressFirst      Key = "hotkey_picker_press_first"
+	HotkeyPickerConfirm         Key = "hotkey_picker_confirm"
+	HotkeyPickerCancel          Key = "hotkey_picker_cancel"
 )
 
 type Localizer struct {
