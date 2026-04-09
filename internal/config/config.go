@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	_ "embed"
 	"errors"
 	"fmt"
 	"os"
@@ -15,6 +17,9 @@ import (
 
 const envConfigPath = "COE_CONFIG"
 const defaultDictionaryRelativePath = "./dictionary.yaml"
+
+//go:embed config.template.yaml
+var defaultConfigTemplate string
 
 const (
 	RuntimeModeDesktop = "desktop"
@@ -526,15 +531,7 @@ func InitDefault(path string, overwrite bool) (InitResult, error) {
 		return InitResult{}, err
 	}
 
-	cfg := Default()
-	cfg.Dictionary.File = defaultDictionaryRelativePath
-
-	data, err := yaml.Marshal(cfg)
-	if err != nil {
-		return InitResult{}, err
-	}
-
-	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(strings.TrimRight(defaultConfigTemplate, "\n")+"\n"), 0o644); err != nil {
 		return InitResult{}, err
 	}
 	dictionaryPath := dictionaryPathForConfig(path)
@@ -600,8 +597,7 @@ func ensureStarterDictionary(path string) (InitResult, error) {
 	configUpdated := false
 	dictionaryPath := strings.TrimSpace(cfg.Dictionary.File)
 	if dictionaryPath == "" {
-		cfg.Dictionary.File = defaultDictionaryRelativePath
-		if err := Save(path, cfg); err != nil {
+		if _, err := UpdateValue(path, "dictionary.file", defaultDictionaryRelativePath); err != nil {
 			return InitResult{}, err
 		}
 		configUpdated = true
@@ -633,6 +629,29 @@ func Save(path string, cfg Config) error {
 	return os.WriteFile(path, append(data, '\n'), 0o644)
 }
 
+func UpdateValue(path, key, value string) (string, error) {
+	normalized, err := normalizeValueForKey(key, value)
+	if err != nil {
+		return "", err
+	}
+
+	if err := ensureConfigFileExists(path); err != nil {
+		return "", err
+	}
+
+	document, err := loadConfigDocument(path)
+	if err != nil {
+		return "", err
+	}
+	if err := updateConfigDocumentValue(document, strings.Split(strings.TrimSpace(key), "."), normalized); err != nil {
+		return "", err
+	}
+	if err := writeConfigDocument(path, document); err != nil {
+		return "", err
+	}
+	return normalized, nil
+}
+
 func SetValue(cfg *Config, key, value string) error {
 	switch strings.TrimSpace(key) {
 	case "runtime.mode":
@@ -659,6 +678,158 @@ func SetValue(cfg *Config, key, value string) error {
 	default:
 		return errors.New("unsupported config key: " + key)
 	}
+}
+
+func normalizeValueForKey(key, value string) (string, error) {
+	switch strings.TrimSpace(key) {
+	case "runtime.mode":
+		cfg := Default()
+		if err := SetValue(&cfg, key, value); err != nil {
+			return "", err
+		}
+		return cfg.Runtime.Mode, nil
+	case "hotkey.trigger_mode":
+		cfg := Default()
+		if err := SetValue(&cfg, key, value); err != nil {
+			return "", err
+		}
+		return cfg.Hotkey.TriggerMode, nil
+	case "hotkey.preferred_accelerator":
+		cfg := Default()
+		if err := SetValue(&cfg, key, value); err != nil {
+			return "", err
+		}
+		return cfg.Hotkey.PreferredAccelerator, nil
+	case "dictionary.file":
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return "", errors.New("dictionary.file cannot be empty")
+		}
+		return trimmed, nil
+	default:
+		return "", errors.New("unsupported config key: " + key)
+	}
+}
+
+func ensureConfigFileExists(path string) error {
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	_, err := WriteDefault(path, false)
+	return err
+}
+
+func loadConfigDocument(path string) (*yaml.Node, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var document yaml.Node
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		return nil, err
+	}
+	if document.Kind == 0 {
+		document.Kind = yaml.DocumentNode
+	}
+	if len(document.Content) == 0 {
+		document.Content = []*yaml.Node{{Kind: yaml.MappingNode, Tag: "!!map"}}
+	}
+	return &document, nil
+}
+
+func writeConfigDocument(path string, document *yaml.Node) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+
+	var buf bytes.Buffer
+	encoder := yaml.NewEncoder(&buf)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(document); err != nil {
+		_ = encoder.Close()
+		return err
+	}
+	if err := encoder.Close(); err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, buf.Bytes(), 0o644)
+}
+
+func updateConfigDocumentValue(document *yaml.Node, path []string, value string) error {
+	if len(path) == 0 {
+		return errors.New("config key cannot be empty")
+	}
+
+	root := document
+	if root.Kind != yaml.DocumentNode {
+		return fmt.Errorf("config root must be a document, got kind %d", root.Kind)
+	}
+	if len(root.Content) == 0 {
+		root.Content = []*yaml.Node{{Kind: yaml.MappingNode, Tag: "!!map"}}
+	}
+
+	current := root.Content[0]
+	if current.Kind == 0 {
+		current.Kind = yaml.MappingNode
+		current.Tag = "!!map"
+	}
+	if current.Kind != yaml.MappingNode {
+		return errors.New("config root mapping is not a YAML mapping")
+	}
+
+	for i, segment := range path {
+		segment = strings.TrimSpace(segment)
+		if segment == "" {
+			return errors.New("config key cannot contain empty path segment")
+		}
+
+		keyNode, valueNode := mappingEntry(current, segment)
+		leaf := i == len(path)-1
+		if keyNode == nil {
+			keyNode = &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: segment}
+			if leaf {
+				valueNode = &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value}
+			} else {
+				valueNode = &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+			}
+			current.Content = append(current.Content, keyNode, valueNode)
+		}
+
+		if leaf {
+			valueNode.Kind = yaml.ScalarNode
+			valueNode.Tag = "!!str"
+			valueNode.Value = value
+			return nil
+		}
+
+		if valueNode.Kind == 0 {
+			valueNode.Kind = yaml.MappingNode
+			valueNode.Tag = "!!map"
+		}
+		if valueNode.Kind != yaml.MappingNode {
+			return fmt.Errorf("config key %q is not a mapping", strings.Join(path[:i+1], "."))
+		}
+		current = valueNode
+	}
+
+	return nil
+}
+
+func mappingEntry(mapping *yaml.Node, key string) (*yaml.Node, *yaml.Node) {
+	if mapping == nil || mapping.Kind != yaml.MappingNode {
+		return nil, nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			return mapping.Content[i], mapping.Content[i+1]
+		}
+	}
+	return nil, nil
 }
 
 func loadEnvFile(path string) error {

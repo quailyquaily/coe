@@ -1,3 +1,5 @@
+# Keep this template in sync with ../../config.example.yaml.
+
 # Runtime behavior.
 runtime:
   # Runtime mode.

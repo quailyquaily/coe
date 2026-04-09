@@ -60,6 +60,22 @@ func TestWriteDefaultAndLoad(t *testing.T) {
 		t.Fatalf("unexpected dictionary path %q", cfg.Dictionary.File)
 	}
 
+	configData, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile(config) error = %v", err)
+	}
+	configText := string(configData)
+	for _, fragment := range []string{
+		"# Runtime behavior.",
+		"# Automatic speech recognition provider.",
+		"# Personal dictionary used during LLM correction and post-correction normalization.",
+		"file: \"./dictionary.yaml\"",
+	} {
+		if !strings.Contains(configText, fragment) {
+			t.Fatalf("config template missing %q in:\n%s", fragment, configText)
+		}
+	}
+
 	dictionaryData, err := os.ReadFile(filepath.Join(dir, "dictionary.yaml"))
 	if err != nil {
 		t.Fatalf("ReadFile(dictionary) error = %v", err)
@@ -83,7 +99,8 @@ func TestInitDefaultBackfillsStarterDictionaryForExistingConfig(t *testing.T) {
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	if err := os.WriteFile(path, []byte("runtime:\n  mode: desktop\n"), 0o644); err != nil {
+	source := "# keep runtime comment\nruntime:\n  # keep mode comment\n  mode: desktop\n"
+	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 		t.Fatalf("WriteFile(config) error = %v", err)
 	}
 
@@ -110,6 +127,21 @@ func TestInitDefaultBackfillsStarterDictionaryForExistingConfig(t *testing.T) {
 	}
 	if cfg.Dictionary.File != filepath.Join(dir, "dictionary.yaml") {
 		t.Fatalf("Dictionary.File = %q", cfg.Dictionary.File)
+	}
+	updatedData, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile(config) error = %v", err)
+	}
+	updatedText := string(updatedData)
+	for _, fragment := range []string{
+		"# keep runtime comment",
+		"# keep mode comment",
+		"dictionary:",
+		"file: ./dictionary.yaml",
+	} {
+		if !strings.Contains(updatedText, fragment) {
+			t.Fatalf("updated config missing %q in:\n%s", fragment, updatedText)
+		}
 	}
 	if _, err := os.Stat(filepath.Join(dir, "dictionary.yaml")); err != nil {
 		t.Fatalf("starter dictionary missing: %v", err)
@@ -334,6 +366,82 @@ func TestSetValueRejectsUnsupportedKey(t *testing.T) {
 	cfg := Default()
 	if err := SetValue(&cfg, "llm.model", "x"); err == nil {
 		t.Fatal("expected unsupported config key to fail")
+	}
+}
+
+func TestUpdateValuePreservesComments(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	source := strings.Join([]string{
+		"# top comment",
+		"runtime:",
+		"  # runtime mode comment",
+		"  mode: desktop",
+		"",
+		"hotkey:",
+		"  # trigger comment",
+		"  trigger_mode: toggle",
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	normalized, err := UpdateValue(path, "runtime.mode", "fcitx")
+	if err != nil {
+		t.Fatalf("UpdateValue() error = %v", err)
+	}
+	if normalized != "fcitx" {
+		t.Fatalf("normalized = %q, want %q", normalized, "fcitx")
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	text := string(data)
+	for _, fragment := range []string{
+		"# top comment",
+		"# runtime mode comment",
+		"# trigger comment",
+		"mode: fcitx",
+		"trigger_mode: toggle",
+	} {
+		if !strings.Contains(text, fragment) {
+			t.Fatalf("updated config missing %q in:\n%s", fragment, text)
+		}
+	}
+}
+
+func TestUpdateValueCreatesCommentedDefaultConfigWhenMissing(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	normalized, err := UpdateValue(path, "hotkey.trigger_mode", "hold")
+	if err != nil {
+		t.Fatalf("UpdateValue() error = %v", err)
+	}
+	if normalized != "hold" {
+		t.Fatalf("normalized = %q, want %q", normalized, "hold")
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	text := string(data)
+	for _, fragment := range []string{
+		"# Runtime behavior.",
+		"# Trigger semantics used by the Fcitx5 module when runtime.mode is `fcitx`.",
+		"trigger_mode: hold",
+	} {
+		if !strings.Contains(text, fragment) {
+			t.Fatalf("config missing %q in:\n%s", fragment, text)
+		}
 	}
 }
 

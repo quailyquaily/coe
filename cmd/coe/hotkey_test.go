@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -58,6 +59,20 @@ func TestRunHotkeyPickWritesConfigAndRestarts(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), "hotkey.preferred_accelerator=<Control><Alt>space") {
 		t.Fatalf("output = %q, want updated accelerator", output.String())
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	text := string(data)
+	for _, fragment := range []string{
+		"# Hotkey metadata. This describes the intended shortcut, even when GNOME",
+		"# Preferred accelerator. On GNOME fallback, Coe will try to register this",
+		"preferred_accelerator: <Control><Alt>space",
+	} {
+		if !strings.Contains(text, fragment) {
+			t.Fatalf("updated config missing %q in:\n%s", fragment, text)
+		}
 	}
 }
 

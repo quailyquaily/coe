@@ -48,18 +48,12 @@ func runConfig(_ context.Context, args []string) error {
 			return err
 		}
 
-		cfg, err := config.LoadOrDefault(path)
+		normalized, err := config.UpdateValue(path, args[1], args[2])
 		if err != nil {
 			return err
 		}
-		if err := config.SetValue(&cfg, args[1], args[2]); err != nil {
-			return err
-		}
-		if err := config.Save(path, cfg); err != nil {
-			return err
-		}
 
-		fmt.Printf("updated %s: %s=%s\n", path, args[1], args[2])
+		fmt.Printf("updated %s: %s=%s\n", path, args[1], normalized)
 		return nil
 	default:
 		return errors.New("usage: coe config <init|set>")

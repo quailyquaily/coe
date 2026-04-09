@@ -69,12 +69,8 @@ func runHotkeyPick(ctx context.Context, args []string) error {
 		return err
 	}
 
-	cfg, err := config.LoadOrDefault(path)
+	normalized, err = config.UpdateValue(path, "hotkey.preferred_accelerator", normalized)
 	if err != nil {
-		return err
-	}
-	cfg.Hotkey.PreferredAccelerator = normalized
-	if err := config.Save(path, cfg); err != nil {
 		return err
 	}
 
