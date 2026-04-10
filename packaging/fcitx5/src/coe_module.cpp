@@ -833,6 +833,8 @@ private:
             return;
         }
 
+        triggerPressed_ = false;
+
         if (cachedSelectionEdit_ &&
             cachedSelectionEdit_->inputContext.get() == inputContext) {
             cachedSelectionEdit_.reset();
@@ -1012,6 +1014,13 @@ private:
         if (!keyEvent.inputContext()->hasFocus()) {
             return;
         }
+        if (triggerPressed_) {
+            appendDebugMarker("trigger press ignored repeat key=" +
+                              triggerKey_.toString());
+            keyEvent.filterAndAccept();
+            return;
+        }
+        triggerPressed_ = true;
 
         FCITX_DEBUG() << "coe-fcitx: trigger matched for " << triggerKey_.toString();
         appendDebugMarker("trigger press key=" + triggerKey_.toString());
@@ -1079,6 +1088,7 @@ private:
     }
 
     void handleTriggerRelease(fcitx::KeyEvent &keyEvent) {
+        triggerPressed_ = false;
         if (triggerMode_ != "hold") {
             return;
         }
@@ -1210,6 +1220,7 @@ private:
     std::string triggerMode_;
     std::string dictationState_;
     bool holding_ = false;
+    bool triggerPressed_ = false;
     fcitx::EventDispatcher dispatcher_;
     DBusConnection *callBus_ = nullptr;
     DBusConnection *signalBus_ = nullptr;
