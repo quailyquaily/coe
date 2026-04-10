@@ -180,6 +180,7 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 				processed.TotalDuration = time.Since(startedAt)
 				status := a.dictationState.Completed("scene switched")
 				a.emitStateChanged(logger, status)
+				a.emitStateChanged(logger, a.dictationState.Idle("ready"))
 				if sceneOutcome.Changed {
 					a.emitSceneChanged(logger, sceneOutcome.Scene)
 				}
@@ -289,6 +290,7 @@ func (a *App) Serve(ctx context.Context, w io.Writer) error {
 			status := a.dictationState.Completed("result ready")
 			a.emitStateChanged(logger, status)
 			a.emitResultReady(logger, status.SessionID, processed.Corrected)
+			a.emitStateChanged(logger, a.dictationState.Idle("ready"))
 		}
 		logger.Info(
 			"output result",
