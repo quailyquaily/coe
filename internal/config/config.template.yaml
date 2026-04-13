@@ -44,6 +44,7 @@ asr:
   # Use `doubao` for Doubao cloud ASR.
   # Use `sensevoice` for an external SenseVoice FastAPI service.
   # Use `whispercpp` for local ASR through `whisper-cli`.
+  # Use `voxtype` for local ASR through `voxtype transcribe`.
   # Use `qwen3-asr-vllm` for OpenAI-compatible vLLM chat completions
   # with inline base64 WAV audio.
   provider: openai
@@ -56,6 +57,10 @@ asr:
   endpoint: https://api.openai.com/v1/audio/transcriptions
   # ASR model name.
   model: gpt-4o-mini-transcribe
+  # Optional engine selector for wrapper-style providers.
+  # For `voxtype`, this maps to `voxtype transcribe --engine ...`.
+  # Leave empty to use voxtype's own config default.
+  engine: ""
 
   # Language hint. Use `auto` or leave it empty to rely on auto-detection.
   language: zh
@@ -69,13 +74,17 @@ asr:
   api_key: ""
   # Environment variable that stores the ASR API key when `api_key` is empty.
   api_key_env: OPENAI_API_KEY
-  # Executable name or absolute path for the local CLI.
-  binary: whisper-cli
-  # Absolute path to the local Whisper model file.
+  # Executable name or absolute path for local CLI providers.
+  # Leave empty to use the provider default (`whisper-cli` for `whispercpp`,
+  # `voxtype` for `voxtype`).
+  # For `voxtype`, this can point to a wrapper script when you need custom flags.
+  binary: ""
+  # Absolute path to the local Whisper model file, used by `whispercpp`.
   model_path: ""
-  # Number of CPU threads for local inference. `0` means auto.
+  # Number of CPU threads for local inference, used by `whispercpp`.
+  # `0` means auto.
   threads: 0
-  # Whether to allow GPU acceleration in the local CLI.
+  # Whether to allow GPU acceleration in the local CLI, used by `whispercpp`.
   # `false` adds `--no-gpu`.
   use_gpu: false
 
@@ -166,6 +175,13 @@ notifications:
 #   model_path: ""
 #   threads: 0
 #   use_gpu: false
+#
+# Example voxtype profile:
+#
+# asr:
+#   provider: voxtype
+#   engine: omnilingual
+#   binary: ""
 #
 # Example qwen3-asr-vllm profile:
 #

@@ -54,3 +54,28 @@ func TestValidateASRConfigSupportsDoubao(t *testing.T) {
 		t.Fatalf("validateASRConfig().Problem = %q, want empty", check.Problem)
 	}
 }
+
+func TestValidateASRConfigSupportsVoxtype(t *testing.T) {
+	t.Parallel()
+
+	check := validateASRConfig(config.ASRConfig{
+		Provider: "voxtype",
+		Binary:   "sh",
+		Engine:   "omnilingual",
+	})
+
+	if !check.OK {
+		t.Fatalf("validateASRConfig().OK = false, detail=%q problem=%q", check.Detail, check.Problem)
+	}
+	for _, want := range []string{
+		"provider=voxtype",
+		"engine=omnilingual",
+	} {
+		if !strings.Contains(check.Detail, want) {
+			t.Fatalf("validateASRConfig().Detail missing %q in %q", want, check.Detail)
+		}
+	}
+	if check.Problem != "" {
+		t.Fatalf("validateASRConfig().Problem = %q, want empty", check.Problem)
+	}
+}

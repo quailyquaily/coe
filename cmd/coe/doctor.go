@@ -386,6 +386,19 @@ func validateASRConfig(cfg config.ASRConfig) doctorCheck {
 			Detail:  fmt.Sprintf("provider=sensevoice; endpoint=%s; language=%s", endpoint, nonEmpty(cfg.Language, "auto")),
 			Problem: "",
 		}
+	case asr.ProviderVoxtype:
+		binaryPath, binaryOK := resolveOptionalBinary(cfg.Binary, "voxtype")
+		engine := nonEmpty(strings.TrimSpace(cfg.Engine), "config default")
+		problem := ""
+		if !binaryOK {
+			problem = "ASR provider=voxtype but voxtype was not found"
+		}
+		return doctorCheck{
+			Name:    "ASR provider",
+			OK:      binaryOK,
+			Detail:  fmt.Sprintf("provider=voxtype; binary=%s; engine=%s", nonEmpty(binaryPath, "missing"), engine),
+			Problem: problem,
+		}
 	case asr.ProviderQwen3ASRVLLM:
 		keySource, _ := providerAPIKeySource(cfg.APIKey, cfg.APIKeyEnv, "OPENAI_API_KEY")
 		endpoint := strings.TrimSpace(cfg.Endpoint)

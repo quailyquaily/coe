@@ -54,6 +54,7 @@ Supported providers:
 | `doubao` | Hosted API | `https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash` / fixed `bigmodel` | Uses Doubao file ASR flash; requires API key |
 | `whispercpp` | Local CLI | `whisper-cli` / local `model_path` | Offline path through `whisper.cpp` |
 | `sensevoice` | Self-hosted HTTP | `http://127.0.0.1:50000/api/v1/asr` / none | Talks to the official SenseVoice FastAPI service |
+| `voxtype` | Local CLI | `voxtype` / voxtype config default | Runs `voxtype transcribe`; `asr.engine` can override the voxtype engine |
 | `qwen3-asr-vllm` | Self-hosted OpenAI-compatible chat endpoint | `http://127.0.0.1:8000/v1/chat/completions` / `Qwen3-ASR` | Sends WAV audio to a chat-completions server such as vLLM |
 
 Default profile:
@@ -131,6 +132,22 @@ Notes:
 - `language` maps to the service `lang` form field, for example `auto`, `zh`, `en`, `yue`, `ja`, `ko`
 - Coe uploads one WAV file per request and uses the first entry from the returned `result` array
 - the official repo exposes this service at `http://127.0.0.1:50000/api/v1/asr` when started with `uvicorn api:app --host 0.0.0.0 --port 50000`
+
+To switch to `voxtype`:
+
+```yaml
+asr:
+  provider: voxtype
+  engine: omnilingual
+```
+
+Notes:
+
+- only `provider` is required; `engine` is optional
+- `binary` is optional; leave it empty to use `voxtype`
+- `engine` maps to `voxtype transcribe --engine ...`; leave it empty to use the engine from voxtype's own config
+- Coe only shells out to `voxtype transcribe` in v1; the actual voxtype model and other tuning stay in voxtype's own config
+- if you need custom `--config` flags or environment variables, point `binary` at a small wrapper script
 
 To switch to Qwen3-ASR over an OpenAI-compatible chat endpoint:
 

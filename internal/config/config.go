@@ -91,6 +91,7 @@ type ASRConfig struct {
 	Provider   string `yaml:"provider"`
 	Endpoint   string `yaml:"endpoint"`
 	Model      string `yaml:"model"`
+	Engine     string `yaml:"engine"`
 	Language   string `yaml:"language"`
 	Prompt     string `yaml:"prompt"`
 	PromptFile string `yaml:"prompt_file"`
@@ -162,12 +163,13 @@ func Default() Config {
 			Provider:   "openai",
 			Endpoint:   "https://api.openai.com/v1/audio/transcriptions",
 			Model:      "gpt-4o-mini-transcribe",
+			Engine:     "",
 			Language:   "zh",
 			Prompt:     "",
 			PromptFile: "",
 			APIKey:     "",
 			APIKeyEnv:  "OPENAI_API_KEY",
-			Binary:     "whisper-cli",
+			Binary:     "",
 			ModelPath:  "",
 			Threads:    0,
 			UseGPU:     false,

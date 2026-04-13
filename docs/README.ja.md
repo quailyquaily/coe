@@ -34,7 +34,7 @@ Coe は Linux デスクトップ向けの音声入力ツールです。
    `runtime.mode: desktop` では、GNOME が custom keyboard shortcut で `coe trigger toggle` を呼びます。
 3. `pw-record` でマイク入力を録音します。
 4. ほぼ無音または明らかに壊れた録音は送らずに止めます。
-5. 音声を ASR に送ります。`openai`、`doubao`、`sensevoice`、ローカル `whisper.cpp`、`qwen3-asr-vllm` に対応します。
+5. 音声を ASR に送ります。`openai`、`doubao`、`sensevoice`、ローカル `whisper.cpp`、`voxtype`、`qwen3-asr-vllm` に対応します。
 6. 必要なら、転写結果を OpenAI 互換のテキストモデルへ送り、整形します。
 7. 最終テキストを画面に出します。Fcitx 経由でそのまま入力するか、フォーカス中のアプリへ貼り付けます。
 
@@ -110,7 +110,7 @@ Doubao クラウド ASR の設定手順は [docs/doubao-asr.md](./doubao-asr.md)
 
 - デフォルトホットキー: `<Shift><Super>d`
 - デフォルトのホットキー動作は `hotkey.trigger_mode: toggle` です。1 回押して開始、もう 1 回押して終了します。オプションの `hold` は押して開始、離して終了で、`runtime.mode: fcitx` のときだけ有効です
-- サポートする ASR provider: `openai`, `doubao`, `whispercpp`, `sensevoice`, `qwen3-asr-vllm`
+- サポートする ASR provider: `openai`, `doubao`, `whispercpp`, `sensevoice`, `voxtype`, `qwen3-asr-vllm`
 - LLM 整形は OpenAI 互換 API 配下の上流モデルをサポートします
 
 ## デスクトップ統合

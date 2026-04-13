@@ -54,6 +54,7 @@ cp config.example.yaml ~/.config/coe/config.yaml
 | `doubao` | Hosted API | `https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash` / 固定 `bigmodel` | 豆包の録音ファイル高速認識を使います。API キーが必要 |
 | `whispercpp` | ローカル CLI | `whisper-cli` / ローカル `model_path` | `whisper.cpp` を直接使うオフライン経路 |
 | `sensevoice` | セルフホスト HTTP | `http://127.0.0.1:50000/api/v1/asr` / なし | 公式 SenseVoice FastAPI サービスに接続 |
+| `voxtype` | ローカル CLI | `voxtype` / voxtype 側の設定を使用 | `voxtype transcribe` を呼び出します。`asr.engine` で voxtype engine を上書きできます |
 | `qwen3-asr-vllm` | セルフホスト OpenAI 互換 chat endpoint | `http://127.0.0.1:8000/v1/chat/completions` / `Qwen3-ASR` | WAV 音声を vLLM などの chat completions サーバーに送ります |
 
 デフォルト profile:
@@ -131,6 +132,22 @@ asr:
 - `language` はサービスの `lang` フォームフィールドに対応します。例: `auto`, `zh`, `en`, `yue`, `ja`, `ko`
 - Coe は毎回 1 つの WAV を送り、返ってきた `result` 配列の最初の要素を使います
 - 公式リポジトリでは `uvicorn api:app --host 0.0.0.0 --port 50000` で起動すると、既定の URL は `http://127.0.0.1:50000/api/v1/asr` です
+
+`voxtype` に切り替えるには:
+
+```yaml
+asr:
+  provider: voxtype
+  engine: omnilingual
+```
+
+補足:
+
+- 必須なのは実質 `provider` だけで、`engine` は任意です
+- `binary` も任意で、空なら `voxtype` を使います
+- `engine` は `voxtype transcribe --engine ...` に渡されます。空なら voxtype 側の設定を使います
+- v1 の Coe は `voxtype transcribe` を呼び出すだけです。実際のモデル選択や細かい調整は voxtype 側の設定に置きます
+- 独自の `--config` や環境変数が必要なら、`binary` を小さな wrapper script に向けてください
 
 OpenAI 互換 chat endpoint 経由の Qwen3-ASR に切り替えるには:
 

@@ -30,6 +30,11 @@ func TestNormalizeProviderName(t *testing.T) {
 			input: "qwen3-asr-vllm",
 			want:  ProviderQwen3ASRVLLM,
 		},
+		{
+			name:  "voxtype provider is preserved",
+			input: "voxtype",
+			want:  ProviderVoxtype,
+		},
 	}
 
 	for _, tt := range tests {
@@ -52,6 +57,9 @@ func TestSupportedProvider(t *testing.T) {
 	}
 	if !SupportedProvider(ProviderDoubao) {
 		t.Fatalf("SupportedProvider(%q) = false, want true", ProviderDoubao)
+	}
+	if !SupportedProvider(ProviderVoxtype) {
+		t.Fatalf("SupportedProvider(%q) = false, want true", ProviderVoxtype)
 	}
 	if SupportedProvider("unknown") {
 		t.Fatal(`SupportedProvider("unknown") = true, want false`)

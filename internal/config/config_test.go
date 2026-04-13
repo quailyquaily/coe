@@ -35,6 +35,9 @@ func TestWriteDefaultAndLoad(t *testing.T) {
 	if cfg.Audio.RecorderBinary != "pw-record" {
 		t.Fatalf("unexpected recorder %q", cfg.Audio.RecorderBinary)
 	}
+	if cfg.ASR.Binary != "" {
+		t.Fatalf("unexpected ASR binary %q", cfg.ASR.Binary)
+	}
 	if !cfg.Notifications.EnableSystem {
 		t.Fatal("expected system notifications to be enabled by default")
 	}
@@ -69,6 +72,7 @@ func TestWriteDefaultAndLoad(t *testing.T) {
 		"# Runtime behavior.",
 		"# Automatic speech recognition provider.",
 		"# Personal dictionary used during LLM correction and post-correction normalization.",
+		"binary: \"\"",
 		"file: \"./dictionary.yaml\"",
 	} {
 		if !strings.Contains(configText, fragment) {
