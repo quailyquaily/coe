@@ -54,6 +54,7 @@ cp config.example.yaml ~/.config/coe/config.yaml
 | `doubao` | 云端 API | `https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash` / 固定 `bigmodel` | 走豆包录音文件极速版识别；需要 API key |
 | `whispercpp` | 本地 CLI | `whisper-cli` / 本地 `model_path` | 通过 `whisper.cpp` 走离线路径 |
 | `sensevoice` | 自托管 HTTP | `http://127.0.0.1:50000/api/v1/asr` / 无 | 对接官方 SenseVoice FastAPI 服务 |
+| `voxtype` | 本地 CLI | `voxtype` / 使用 voxtype 自己的配置 | 通过 `voxtype transcribe` 调本地引擎；`asr.engine` 可覆盖 voxtype engine |
 | `qwen3-asr-vllm` | 自托管 OpenAI 兼容 chat endpoint | `http://127.0.0.1:8000/v1/chat/completions` / `Qwen3-ASR` | 把 WAV 音频发到兼容 chat completions 的服务，比如 vLLM |
 
 默认 profile：
@@ -131,6 +132,22 @@ asr:
 - `language` 会映射到服务的 `lang` 表单字段，比如 `auto`、`zh`、`en`、`yue`、`ja`、`ko`
 - Coe 每次上传一个 WAV 文件，并使用返回 `result` 数组里的第一条文本
 - 官方仓库用 `uvicorn api:app --host 0.0.0.0 --port 50000` 启动后，默认服务地址就是 `http://127.0.0.1:50000/api/v1/asr`
+
+如果你要切到 `voxtype`：
+
+```yaml
+asr:
+  provider: voxtype
+  engine: omnilingual
+```
+
+说明：
+
+- 必填的其实只有 `provider`，`engine` 是可选项
+- `binary` 也是可选项；留空时默认用 `voxtype`
+- `engine` 会映射到 `voxtype transcribe --engine ...`；留空时就用 voxtype 自己配置里的 engine
+- Coe 在 v1 里只负责调用 `voxtype transcribe`；具体模型、ONNX 配置和其他调优仍然放在 voxtype 自己的配置里
+- 如果你需要自定义 `--config` 或环境变量，直接把 `binary` 指到一个很小的 wrapper script 即可
 
 如果你要切到通过 OpenAI 兼容 chat endpoint 部署的 Qwen3-ASR：
 

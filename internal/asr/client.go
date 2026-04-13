@@ -25,6 +25,7 @@ const (
 	ProviderDoubao           = "doubao"
 	ProviderWhisperCPP       = "whispercpp"
 	ProviderSenseVoice       = "sensevoice"
+	ProviderVoxtype          = "voxtype"
 	ProviderQwen3ASRVLLM     = "qwen3-asr-vllm"
 	ProviderDoubaoFlashAlias = "doubao-flash"
 	ProviderWhisperCPPAlias  = "whisper.cpp"
@@ -45,7 +46,7 @@ func NormalizeProviderName(value string) string {
 
 func SupportedProvider(value string) bool {
 	switch NormalizeProviderName(value) {
-	case ProviderStub, ProviderOpenAI, ProviderDoubao, ProviderWhisperCPP, ProviderSenseVoice, ProviderQwen3ASRVLLM:
+	case ProviderStub, ProviderOpenAI, ProviderDoubao, ProviderWhisperCPP, ProviderSenseVoice, ProviderVoxtype, ProviderQwen3ASRVLLM:
 		return true
 	default:
 		return false
@@ -86,6 +87,11 @@ func NewClient(provider config.ASRConfig) (Client, error) {
 		return SenseVoiceHTTPClient{
 			Endpoint: provider.Endpoint,
 			Language: provider.Language,
+		}, nil
+	case ProviderVoxtype:
+		return VoxtypeCLIClient{
+			Binary: provider.Binary,
+			Engine: provider.Engine,
 		}, nil
 	case ProviderQwen3ASRVLLM:
 		return Qwen3ASRVLLMClient{

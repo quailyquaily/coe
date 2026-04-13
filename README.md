@@ -34,7 +34,7 @@ The runtime flow is:
    In `runtime.mode: desktop`, GNOME calls `coe trigger toggle` through a custom keyboard shortcut.
 3. Record microphone input with `pw-record`.
 4. Reject near-silent or obviously corrupt captures instead of sending them out.
-5. Send the audio to ASR. Coe supports `openai`, `doubao`, `sensevoice`, local `whisper.cpp`, or `qwen3-asr-vllm`.
+5. Send the audio to ASR. Coe supports `openai`, `doubao`, `sensevoice`, local `whisper.cpp`, `voxtype`, or `qwen3-asr-vllm`.
 6. Optionally send the transcript to an OpenAI-compatible text model for cleanup.
 7. Deliver the final text on screen: either commit it through Fcitx, or paste it back into the focused app.
 
@@ -110,7 +110,7 @@ Quick summary:
 
 - default hotkey: `<Shift><Super>d`
 - default hotkey behavior: `hotkey.trigger_mode: toggle`, meaning press once to start dictation and press again to stop. The optional `hold` mode starts on key press and stops on key release, and only works in `runtime.mode: fcitx`
-- supported ASR providers: `openai`, `doubao`, `whispercpp`, `sensevoice`, `qwen3-asr-vllm`
+- supported ASR providers: `openai`, `doubao`, `whispercpp`, `sensevoice`, `voxtype`, `qwen3-asr-vllm`
 - LLM cleanup supports upstream models behind any OpenAI-compatible API
 
 ## Desktop Integration
