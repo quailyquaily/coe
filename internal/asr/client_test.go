@@ -1,6 +1,12 @@
 package asr
 
-import "testing"
+import (
+	"net/http"
+	"testing"
+	"time"
+
+	"coe/internal/config"
+)
 
 func TestNormalizeProviderName(t *testing.T) {
 	t.Parallel()
@@ -63,5 +69,50 @@ func TestSupportedProvider(t *testing.T) {
 	}
 	if SupportedProvider("unknown") {
 		t.Fatal(`SupportedProvider("unknown") = true, want false`)
+	}
+}
+
+func TestNewClientHTTPTimeoutFromConfig(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient(config.ASRConfig{Provider: ProviderOpenAI, TimeoutSeconds: 7})
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	openAIClient, ok := client.(OpenAIClient)
+	if !ok {
+		t.Fatalf("client type = %T", client)
+	}
+	if openAIClient.HTTPClient == nil {
+		t.Fatal("HTTPClient is nil")
+	}
+	if openAIClient.HTTPClient.Timeout != 7*time.Second {
+		t.Fatalf("HTTPClient.Timeout = %v", openAIClient.HTTPClient.Timeout)
+	}
+}
+
+func TestNewHTTPClientUsesFallback(t *testing.T) {
+	t.Parallel()
+
+	client := newHTTPClient(0, 60)
+	if client.Timeout != 60*time.Second {
+		t.Fatalf("client.Timeout = %v", client.Timeout)
+	}
+
+	client = newHTTPClient(-1, 60)
+	if client.Timeout != 60*time.Second {
+		t.Fatalf("client.Timeout = %v", client.Timeout)
+	}
+}
+
+func TestNewHTTPClientUsesConfiguredTimeout(t *testing.T) {
+	t.Parallel()
+
+	client := newHTTPClient(12, 60)
+	if client.Timeout != 12*time.Second {
+		t.Fatalf("client.Timeout = %v", client.Timeout)
+	}
+	if _, ok := any(client).(*http.Client); !ok {
+		t.Fatal("expected *http.Client")
 	}
 }

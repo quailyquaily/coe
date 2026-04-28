@@ -74,6 +74,9 @@ asr:
   api_key: ""
   # Environment variable that stores the ASR API key when `api_key` is empty.
   api_key_env: OPENAI_API_KEY
+  # Timeout in seconds for HTTP-based ASR calls.
+  # Use a positive value; <= 0 falls back to the default (60).
+  timeout_seconds: 60
   # Executable name or absolute path for local CLI providers.
   # Leave empty to use the provider default (`whisper-cli` for `whispercpp`,
   # `voxtype` for `voxtype`).
@@ -106,6 +109,9 @@ llm:
   api_key: ""
   # Environment variable that stores the cleanup API key when `api_key` is empty.
   api_key_env: OPENAI_API_KEY
+  # Timeout in seconds for LLM cleanup calls.
+  # Use a positive value; <= 0 falls back to the default (45).
+  timeout_seconds: 45
   # Optional Go text/template correction instructions.
   # Available fields: .Provider, .Model, .EndpointType
   prompt: ""

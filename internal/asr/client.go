@@ -3,7 +3,9 @@ package asr
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
 	"coe/internal/audio"
 	"coe/internal/config"
@@ -66,12 +68,14 @@ func NewClient(provider config.ASRConfig) (Client, error) {
 			Language:   provider.Language,
 			Prompt:     provider.Prompt,
 			PromptFile: provider.PromptFile,
+			HTTPClient: newHTTPClient(provider.TimeoutSeconds, 60),
 		}, nil
 	case ProviderDoubao:
 		return DoubaoClient{
-			Endpoint:  provider.Endpoint,
-			APIKey:    provider.APIKey,
-			APIKeyEnv: provider.APIKeyEnv,
+			Endpoint:   provider.Endpoint,
+			APIKey:     provider.APIKey,
+			APIKeyEnv:  provider.APIKeyEnv,
+			HTTPClient: newHTTPClient(provider.TimeoutSeconds, 60),
 		}, nil
 	case ProviderWhisperCPP:
 		return WhisperCPPCLIClient{
@@ -85,8 +89,9 @@ func NewClient(provider config.ASRConfig) (Client, error) {
 		}, nil
 	case ProviderSenseVoice:
 		return SenseVoiceHTTPClient{
-			Endpoint: provider.Endpoint,
-			Language: provider.Language,
+			Endpoint:   provider.Endpoint,
+			Language:   provider.Language,
+			HTTPClient: newHTTPClient(provider.TimeoutSeconds, 60),
 		}, nil
 	case ProviderVoxtype:
 		return VoxtypeCLIClient{
@@ -95,15 +100,24 @@ func NewClient(provider config.ASRConfig) (Client, error) {
 		}, nil
 	case ProviderQwen3ASRVLLM:
 		return Qwen3ASRVLLMClient{
-			Endpoint:  provider.Endpoint,
-			Model:     provider.Model,
-			APIKey:    provider.APIKey,
-			APIKeyEnv: provider.APIKeyEnv,
-			Prompt:    provider.Prompt,
+			Endpoint:   provider.Endpoint,
+			Model:      provider.Model,
+			APIKey:     provider.APIKey,
+			APIKeyEnv:  provider.APIKeyEnv,
+			Prompt:     provider.Prompt,
+			HTTPClient: newHTTPClient(provider.TimeoutSeconds, 60),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported ASR provider %q", provider.Provider)
 	}
+}
+
+func newHTTPClient(timeoutSeconds, fallbackSeconds int) *http.Client {
+	timeout := fallbackSeconds
+	if timeoutSeconds > 0 {
+		timeout = timeoutSeconds
+	}
+	return &http.Client{Timeout: time.Duration(timeout) * time.Second}
 }
 
 type StubClient struct{}

@@ -38,6 +38,12 @@ func TestWriteDefaultAndLoad(t *testing.T) {
 	if cfg.ASR.Binary != "" {
 		t.Fatalf("unexpected ASR binary %q", cfg.ASR.Binary)
 	}
+	if cfg.ASR.TimeoutSeconds != 60 {
+		t.Fatalf("unexpected ASR timeout %d", cfg.ASR.TimeoutSeconds)
+	}
+	if cfg.LLM.TimeoutSeconds != 45 {
+		t.Fatalf("unexpected LLM timeout %d", cfg.LLM.TimeoutSeconds)
+	}
 	if !cfg.Notifications.EnableSystem {
 		t.Fatal("expected system notifications to be enabled by default")
 	}
@@ -73,6 +79,8 @@ func TestWriteDefaultAndLoad(t *testing.T) {
 		"# Automatic speech recognition provider.",
 		"# Personal dictionary used during LLM correction and post-correction normalization.",
 		"binary: \"\"",
+		"timeout_seconds: 60",
+		"timeout_seconds: 45",
 		"file: \"./dictionary.yaml\"",
 	} {
 		if !strings.Contains(configText, fragment) {
