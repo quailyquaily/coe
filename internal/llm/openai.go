@@ -28,6 +28,7 @@ type OpenAICorrector struct {
 	PromptFile     string
 	PromptTemplate string
 	ResolvedPrompt string
+	Timeout        time.Duration
 	HTTPClient     *http.Client
 }
 
@@ -41,6 +42,12 @@ func (c OpenAICorrector) Name() string {
 }
 
 func (c OpenAICorrector) Correct(ctx context.Context, input string) (Result, error) {
+	if c.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.Timeout)
+		defer cancel()
+	}
+
 	apiKey, _, err := resolveAPIKey(c.APIKey, c.APIKeyEnv)
 	if err != nil {
 		return Result{}, err
