@@ -3,7 +3,9 @@ package llm
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
 	"coe/internal/config"
 	"coe/internal/prompts"
@@ -39,6 +41,8 @@ func NewCorrectorWithTemplate(provider config.LLMConfig, promptTemplate string) 
 			Prompt:         provider.Prompt,
 			PromptFile:     provider.PromptFile,
 			PromptTemplate: promptTemplate,
+			Timeout:        resolveTimeout(provider.TimeoutSeconds, 45),
+			HTTPClient:     newHTTPClientWithTimeout(provider.TimeoutSeconds, 45),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported LLM provider %q", provider.Provider)
@@ -57,10 +61,24 @@ func NewCorrectorWithResolvedPrompt(provider config.LLMConfig, resolvedPrompt st
 			APIKey:         provider.APIKey,
 			APIKeyEnv:      provider.APIKeyEnv,
 			ResolvedPrompt: strings.TrimSpace(resolvedPrompt),
+			Timeout:        resolveTimeout(provider.TimeoutSeconds, 45),
+			HTTPClient:     newHTTPClientWithTimeout(provider.TimeoutSeconds, 45),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported LLM provider %q", provider.Provider)
 	}
+}
+
+func resolveTimeout(timeoutSeconds, fallbackSeconds int) time.Duration {
+	seconds := fallbackSeconds
+	if timeoutSeconds > 0 {
+		seconds = timeoutSeconds
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func newHTTPClientWithTimeout(timeoutSeconds, fallbackSeconds int) *http.Client {
+	return &http.Client{Timeout: resolveTimeout(timeoutSeconds, fallbackSeconds)}
 }
 
 func ResolvePrompt(provider config.LLMConfig, promptTemplate string, templateData prompts.LLMTemplateData) (string, error) {

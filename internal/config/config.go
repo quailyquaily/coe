@@ -88,30 +88,32 @@ type AudioConfig struct {
 }
 
 type ASRConfig struct {
-	Provider   string `yaml:"provider"`
-	Endpoint   string `yaml:"endpoint"`
-	Model      string `yaml:"model"`
-	Engine     string `yaml:"engine"`
-	Language   string `yaml:"language"`
-	Prompt     string `yaml:"prompt"`
-	PromptFile string `yaml:"prompt_file"`
-	APIKey     string `yaml:"api_key"`
-	APIKeyEnv  string `yaml:"api_key_env"`
-	Binary     string `yaml:"binary"`
-	ModelPath  string `yaml:"model_path"`
-	Threads    int    `yaml:"threads"`
-	UseGPU     bool   `yaml:"use_gpu"`
+	Provider       string `yaml:"provider"`
+	Endpoint       string `yaml:"endpoint"`
+	Model          string `yaml:"model"`
+	Engine         string `yaml:"engine"`
+	Language       string `yaml:"language"`
+	Prompt         string `yaml:"prompt"`
+	PromptFile     string `yaml:"prompt_file"`
+	APIKey         string `yaml:"api_key"`
+	APIKeyEnv      string `yaml:"api_key_env"`
+	TimeoutSeconds int    `yaml:"timeout_seconds"`
+	Binary         string `yaml:"binary"`
+	ModelPath      string `yaml:"model_path"`
+	Threads        int    `yaml:"threads"`
+	UseGPU         bool   `yaml:"use_gpu"`
 }
 
 type LLMConfig struct {
-	Provider     string `yaml:"provider"`
-	Endpoint     string `yaml:"endpoint"`
-	EndpointType string `yaml:"endpoint_type"`
-	Model        string `yaml:"model"`
-	APIKey       string `yaml:"api_key"`
-	APIKeyEnv    string `yaml:"api_key_env"`
-	Prompt       string `yaml:"prompt"`
-	PromptFile   string `yaml:"prompt_file"`
+	Provider       string `yaml:"provider"`
+	Endpoint       string `yaml:"endpoint"`
+	EndpointType   string `yaml:"endpoint_type"`
+	Model          string `yaml:"model"`
+	APIKey         string `yaml:"api_key"`
+	APIKeyEnv      string `yaml:"api_key_env"`
+	TimeoutSeconds int    `yaml:"timeout_seconds"`
+	Prompt         string `yaml:"prompt"`
+	PromptFile     string `yaml:"prompt_file"`
 }
 
 type DictionaryConfig struct {
@@ -160,28 +162,30 @@ func Default() Config {
 			Format:         "s16",
 		},
 		ASR: ASRConfig{
-			Provider:   "openai",
-			Endpoint:   "https://api.openai.com/v1/audio/transcriptions",
-			Model:      "gpt-4o-mini-transcribe",
-			Engine:     "",
-			Language:   "zh",
-			Prompt:     "",
-			PromptFile: "",
-			APIKey:     "",
-			APIKeyEnv:  "OPENAI_API_KEY",
-			Binary:     "",
-			ModelPath:  "",
-			Threads:    0,
-			UseGPU:     false,
+			Provider:       "openai",
+			Endpoint:       "https://api.openai.com/v1/audio/transcriptions",
+			Model:          "gpt-4o-mini-transcribe",
+			Engine:         "",
+			Language:       "zh",
+			Prompt:         "",
+			PromptFile:     "",
+			APIKey:         "",
+			APIKeyEnv:      "OPENAI_API_KEY",
+			TimeoutSeconds: 60,
+			Binary:         "",
+			ModelPath:      "",
+			Threads:        0,
+			UseGPU:         false,
 		},
 		LLM: LLMConfig{
-			Provider:     "openai",
-			Endpoint:     "https://api.openai.com/v1",
-			EndpointType: "chat",
-			Model:        "gpt-4o-mini",
-			APIKeyEnv:    "OPENAI_API_KEY",
-			Prompt:       "",
-			PromptFile:   "",
+			Provider:       "openai",
+			Endpoint:       "https://api.openai.com/v1",
+			EndpointType:   "chat",
+			Model:          "gpt-4o-mini",
+			APIKeyEnv:      "OPENAI_API_KEY",
+			TimeoutSeconds: 45,
+			Prompt:         "",
+			PromptFile:     "",
 		},
 		Dictionary: DictionaryConfig{
 			File: "",
