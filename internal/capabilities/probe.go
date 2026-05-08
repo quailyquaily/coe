@@ -8,9 +8,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"coe/internal/platform/portal"
 )
+
+const defaultPortalProbeTimeout = 1500 * time.Millisecond
 
 type FeatureMode string
 
@@ -66,7 +69,16 @@ type Capabilities struct {
 	Notes       []string
 }
 
+type ProbeOptions struct {
+	SkipPortals        bool
+	PortalProbeTimeout time.Duration
+}
+
 func Probe(ctx context.Context) (Capabilities, error) {
+	return ProbeWithOptions(ctx, ProbeOptions{})
+}
+
+func ProbeWithOptions(ctx context.Context, opts ProbeOptions) (Capabilities, error) {
 	caps := Capabilities{
 		SessionType: strings.ToLower(os.Getenv("XDG_SESSION_TYPE")),
 		Desktop:     strings.ToLower(os.Getenv("XDG_CURRENT_DESKTOP")),
@@ -75,21 +87,33 @@ func Probe(ctx context.Context) (Capabilities, error) {
 	}
 	caps.Fcitx = detectFcitx(caps.Binaries["fcitx5"])
 
-	if caps.DBusSession {
+	portalBlockReason := ""
+	if !opts.SkipPortals && caps.DBusSession {
+		portalBlockReason = portalProbeBlockReason(caps)
+	}
+	switch {
+	case opts.SkipPortals:
+		caps.Notes = append(caps.Notes, "portal probe skipped: runtime mode does not need desktop portals")
+	case !caps.DBusSession:
+		caps.Notes = append(caps.Notes, "session D-Bus is not available")
+	case portalBlockReason != "":
+		caps.Notes = append(caps.Notes, "portal probe skipped: "+portalBlockReason)
+	default:
+		portalCtx, cancel := context.WithTimeout(ctx, portalProbeTimeout(opts))
+		defer cancel()
+
 		client, err := portal.ConnectSession()
 		if err != nil {
 			caps.Notes = append(caps.Notes, fmt.Sprintf("connect to session bus failed: %v", err))
 		} else {
 			defer client.Close()
 
-			interfaces, err := client.Probe(ctx)
+			interfaces, err := client.Probe(portalCtx)
 			if err != nil {
 				caps.Notes = append(caps.Notes, fmt.Sprintf("portal probe returned partial data: %v", err))
 			}
 			caps.Portals = interfaces
 		}
-	} else {
-		caps.Notes = append(caps.Notes, "session D-Bus is not available")
 	}
 
 	caps.Hotkey = planHotkey(caps)
@@ -100,6 +124,23 @@ func Probe(ctx context.Context) (Capabilities, error) {
 	caps.Notes = append(caps.Notes, generateNotes(caps)...)
 
 	return caps, nil
+}
+
+func portalProbeTimeout(opts ProbeOptions) time.Duration {
+	if opts.PortalProbeTimeout > 0 {
+		return opts.PortalProbeTimeout
+	}
+	return defaultPortalProbeTimeout
+}
+
+func portalProbeBlockReason(caps Capabilities) string {
+	if caps.Desktop == "" {
+		return "XDG_CURRENT_DESKTOP is missing"
+	}
+	if os.Getenv("WAYLAND_DISPLAY") == "" && os.Getenv("DISPLAY") == "" {
+		return "display environment is missing"
+	}
+	return ""
 }
 
 func (c Capabilities) Report() string {

@@ -12,15 +12,13 @@ import (
 )
 
 const (
-	DesktopBusName            = "org.freedesktop.portal.Desktop"
-	DesktopObjectPath         = "/org/freedesktop/portal/desktop"
-	GlobalShortcutsInterface  = "org.freedesktop.portal.GlobalShortcuts"
-	RemoteDesktopInterface    = "org.freedesktop.portal.RemoteDesktop"
-	ClipboardInterface        = "org.freedesktop.portal.Clipboard"
-	IntrospectableMethod      = "org.freedesktop.DBus.Introspectable.Introspect"
-	globalShortcutsVersionKey = GlobalShortcutsInterface + ".version"
-	remoteDesktopVersionKey   = RemoteDesktopInterface + ".version"
-	clipboardVersionKey       = ClipboardInterface + ".version"
+	DesktopBusName           = "org.freedesktop.portal.Desktop"
+	DesktopObjectPath        = "/org/freedesktop/portal/desktop"
+	PropertiesGetMethod      = "org.freedesktop.DBus.Properties.Get"
+	GlobalShortcutsInterface = "org.freedesktop.portal.GlobalShortcuts"
+	RemoteDesktopInterface   = "org.freedesktop.portal.RemoteDesktop"
+	ClipboardInterface       = "org.freedesktop.portal.Clipboard"
+	IntrospectableMethod     = "org.freedesktop.DBus.Introspectable.Introspect"
 )
 
 type InterfaceStatus struct {
@@ -72,21 +70,21 @@ func (c *Client) Probe(ctx context.Context) (Interfaces, error) {
 	var versionErr error
 
 	if status.GlobalShortcuts.Available {
-		status.GlobalShortcuts.Version, err = c.interfaceVersion(globalShortcutsVersionKey)
+		status.GlobalShortcuts.Version, err = c.interfaceVersion(ctx, GlobalShortcutsInterface)
 		if err != nil {
 			versionErr = joinProbeError(versionErr, fmt.Errorf("read GlobalShortcuts version: %w", err))
 		}
 	}
 
 	if status.RemoteDesktop.Available {
-		status.RemoteDesktop.Version, err = c.interfaceVersion(remoteDesktopVersionKey)
+		status.RemoteDesktop.Version, err = c.interfaceVersion(ctx, RemoteDesktopInterface)
 		if err != nil {
 			versionErr = joinProbeError(versionErr, fmt.Errorf("read RemoteDesktop version: %w", err))
 		}
 	}
 
 	if status.Clipboard.Available {
-		status.Clipboard.Version, err = c.interfaceVersion(clipboardVersionKey)
+		status.Clipboard.Version, err = c.interfaceVersion(ctx, ClipboardInterface)
 		if err != nil {
 			versionErr = joinProbeError(versionErr, fmt.Errorf("read Clipboard version: %w", err))
 		}
@@ -113,10 +111,14 @@ func (c *Client) Introspect(ctx context.Context) (*introspect.Node, error) {
 	return &node, nil
 }
 
-func (c *Client) interfaceVersion(property string) (uint32, error) {
-	var version uint32
-	if err := c.obj.StoreProperty(property, &version); err != nil {
+func (c *Client) interfaceVersion(ctx context.Context, interfaceName string) (uint32, error) {
+	var versionVariant dbus.Variant
+	if err := c.obj.CallWithContext(ctx, PropertiesGetMethod, 0, interfaceName, "version").Store(&versionVariant); err != nil {
 		return 0, err
+	}
+	version, ok := versionVariant.Value().(uint32)
+	if !ok {
+		return 0, fmt.Errorf("%s version property is %T, want uint32", interfaceName, versionVariant.Value())
 	}
 	return version, nil
 }

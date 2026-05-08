@@ -31,12 +31,14 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	if !config.IsSupportedRuntimeMode(cfg.Runtime.Mode) {
 		return nil, fmt.Errorf("unsupported runtime.mode %q", cfg.Runtime.Mode)
 	}
+	desktopRuntime := cfg.Runtime.Mode == config.RuntimeModeDesktop
 
-	caps, err := capabilities.Probe(ctx)
+	caps, err := capabilities.ProbeWithOptions(ctx, capabilities.ProbeOptions{
+		SkipPortals: !desktopRuntime,
+	})
 	if err != nil {
 		return nil, err
 	}
-	desktopRuntime := cfg.Runtime.Mode == config.RuntimeModeDesktop
 
 	recorder := audio.PWRecord{
 		Binary:     cfg.Audio.RecorderBinary,

@@ -1,6 +1,7 @@
 package capabilities
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -68,4 +69,53 @@ func TestReportIncludesFcitxStatus(t *testing.T) {
 			t.Fatalf("Report() missing %q in:\n%s", want, report)
 		}
 	}
+}
+
+func TestProbeWithOptionsSkipsPortals(t *testing.T) {
+	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/tmp/coe-missing-bus")
+
+	caps, err := ProbeWithOptions(context.Background(), ProbeOptions{SkipPortals: true})
+	if err != nil {
+		t.Fatalf("ProbeWithOptions() error = %v", err)
+	}
+
+	requireNoteContains(t, caps.Notes, "portal probe skipped: runtime mode does not need desktop portals")
+}
+
+func TestProbeSkipsPortalWhenDesktopEnvIsMissing(t *testing.T) {
+	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/tmp/coe-missing-bus")
+	t.Setenv("XDG_CURRENT_DESKTOP", "")
+	t.Setenv("WAYLAND_DISPLAY", "")
+	t.Setenv("DISPLAY", "")
+
+	caps, err := Probe(context.Background())
+	if err != nil {
+		t.Fatalf("Probe() error = %v", err)
+	}
+
+	requireNoteContains(t, caps.Notes, "portal probe skipped: XDG_CURRENT_DESKTOP is missing")
+}
+
+func TestProbeSkipsPortalWhenDisplayEnvIsMissing(t *testing.T) {
+	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/tmp/coe-missing-bus")
+	t.Setenv("XDG_CURRENT_DESKTOP", "Hyprland")
+	t.Setenv("WAYLAND_DISPLAY", "")
+	t.Setenv("DISPLAY", "")
+
+	caps, err := Probe(context.Background())
+	if err != nil {
+		t.Fatalf("Probe() error = %v", err)
+	}
+
+	requireNoteContains(t, caps.Notes, "portal probe skipped: display environment is missing")
+}
+
+func requireNoteContains(t *testing.T, notes []string, want string) {
+	t.Helper()
+	for _, note := range notes {
+		if strings.Contains(note, want) {
+			return
+		}
+	}
+	t.Fatalf("notes missing %q in %#v", want, notes)
 }
