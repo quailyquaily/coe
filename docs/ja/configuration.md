@@ -64,6 +64,13 @@ cp config.example.yaml ~/.config/coe/config.yaml
 - model: `gpt-4o-mini-transcribe`
 - 直接キーを書くフィールド: `asr.api_key`
 - 環境変数フィールド: `OPENAI_API_KEY`
+- タイムアウトフィールド: `asr.timeout_seconds`、デフォルトは `60`
+
+`asr.timeout_seconds` は HTTP ベースの ASR リクエストを制御します。対象は
+`openai`、`doubao`、`sensevoice`、`qwen3-asr-vllm` です。単位は秒で、正の値を
+指定してください。`0` または負の値はデフォルトの `60` 秒にフォールバックします。
+長い録音やセルフホスト ASR の初回起動に時間がかかる場合は大きくし、ネットワーク
+問題を早く失敗させたい場合は小さくします。
 
 Doubao クラウド ASR に切り替えるには:
 
@@ -176,10 +183,14 @@ asr:
 - model: `gpt-5.4-nano`
 - 直接キーを書くフィールド: `llm.api_key`
 - 環境変数フィールド: `OPENAI_API_KEY`
+- タイムアウトフィールド: `llm.timeout_seconds`、デフォルトは `45`
 
 OpenAI Responses API を使いたい場合は、`llm.endpoint_type` を `responses` にしてください。
 `llm.prompt` も Go の `text/template` としてレンダリングされたうえで補正指示に使われます。
 `llm.prompt_file` も同じ仕組みで、テンプレートを YAML の外に置きたい場合はこちらを優先してください。
+`llm.timeout_seconds` は LLM 整形リクエストの HTTP タイムアウトと context deadline を
+制御します。単位は秒で、正の値を指定してください。`0` または負の値はデフォルトの
+`45` 秒にフォールバックします。
 
 ### Personal Dictionary
 

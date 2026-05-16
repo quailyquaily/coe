@@ -64,6 +64,12 @@ cp config.example.yaml ~/.config/coe/config.yaml
 - model：`gpt-4o-mini-transcribe`
 - 直接写 key 的字段：`asr.api_key`
 - 环境变量字段：`OPENAI_API_KEY`
+- 超时字段：`asr.timeout_seconds`，默认 `60`
+
+`asr.timeout_seconds` 控制基于 HTTP 的 ASR 请求，包括 `openai`、`doubao`、
+`sensevoice` 和 `qwen3-asr-vllm`。它的单位是秒，应该设成正数；`0` 或负数
+会回退到默认的 `60` 秒。如果自托管 ASR 服务处理长录音或冷启动较慢，可以调大；
+如果你希望网络问题更快失败，可以调小。
 
 如果你要切到豆包云端 ASR：
 
@@ -176,10 +182,13 @@ asr:
 - model：`gpt-5.4-nano`
 - 直接写 key 的字段：`llm.api_key`
 - 环境变量字段：`OPENAI_API_KEY`
+- 超时字段：`llm.timeout_seconds`，默认 `45`
 
 如果你想改走 OpenAI Responses API，可以把 `llm.endpoint_type` 设成 `responses`。
 `llm.prompt` 也会先按 Go `text/template` 渲染，再作为校正指令使用。
 `llm.prompt_file` 也是同样的机制；如果你想把模板放到 YAML 外面，优先用这个。
+`llm.timeout_seconds` 控制 LLM 校正请求的 HTTP 超时和 context deadline，单位是秒，
+应该设成正数；`0` 或负数会回退到默认的 `45` 秒。
 
 ### 个人词典
 

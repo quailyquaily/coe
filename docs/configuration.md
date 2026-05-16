@@ -64,6 +64,13 @@ Default profile:
 - model: `gpt-4o-mini-transcribe`
 - direct key field: `asr.api_key`
 - environment field: `OPENAI_API_KEY`
+- timeout field: `asr.timeout_seconds`, default `60`
+
+`asr.timeout_seconds` controls HTTP-based ASR requests, including `openai`,
+`doubao`, `sensevoice`, and `qwen3-asr-vllm`. Use a positive number of seconds.
+`0` or negative values fall back to the default `60` seconds. Increase it when a
+self-hosted ASR service needs more time for long recordings or first-token
+startup; lower it if you prefer faster failure on network issues.
 
 To switch to Doubao cloud ASR:
 
@@ -176,10 +183,14 @@ Notes:
 - model: `gpt-5.4-nano`
 - direct key field: `llm.api_key`
 - environment field: `OPENAI_API_KEY`
+- timeout field: `llm.timeout_seconds`, default `45`
 
 If you want to use the OpenAI Responses API instead, set `llm.endpoint_type` to `responses`.
 `llm.prompt` is also rendered as a Go `text/template` before it is used as correction instructions.
 `llm.prompt_file` works the same way and is preferred when you want the template outside YAML.
+`llm.timeout_seconds` controls the cleanup request timeout and its context
+deadline. Use a positive number of seconds. `0` or negative values fall back to
+the default `45` seconds.
 
 ### Personal Dictionary
 
